@@ -136,14 +136,14 @@ const Index = () => {
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
-                className="glass-card gold-border px-4 py-2.5 flex items-center gap-2 text-sm text-cream min-w-[180px] justify-between"
+                className="glass-card gold-border px-4 py-2.5 flex items-center gap-2 text-sm text-cream w-[200px] justify-between"
               >
-                <span>{selectedCity.name}</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+                <span className="truncate">{selectedCity.name}</span>
+                <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 w-full glass-card gold-border overflow-hidden flex flex-col min-w-[280px] shadow-2xl">
+                <div className="absolute top-full mt-2 left-0 w-full glass-card gold-border overflow-hidden flex flex-col shadow-2xl">
                   <div className="p-2 border-b border-border">
                     <div className="flex items-center gap-2 bg-input rounded-lg px-3 py-2">
                       <Search className="w-4 h-4 text-muted-foreground" />
