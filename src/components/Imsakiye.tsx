@@ -7,12 +7,12 @@ interface ImsakiyeProps {
 }
 
 const RAMADAN_START = new Date(2026, 1, 18); // Feb 18, 2026
-const RAMADAN_END = new Date(2026, 2, 19);   // Mar 19, 2026
+const RAMADAN_END = new Date(2026, 2, 20);   // Mar 20, 2026 (Bayram dahil)
 
 // Kadir Gecesi: 27. gece (Ramazan'ın 27. günü = index 26)
 const KADIR_GECESI_INDEX = 26;
-// Ramazan Bayramı: 20-22 Mart 2026
-const BAYRAM_DATES = ["2026-03-20", "2026-03-21", "2026-03-22"];
+// Ramazan Bayramı 1. gün: 20 Mart 2026 (index 30, 0-indexed)
+const BAYRAM_INDEX = 30;
 
 const Imsakiye = ({ city }: ImsakiyeProps) => {
   const [days, setDays] = useState<DailyPrayerTimes[]>([]);
@@ -67,15 +67,10 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                 {days.map((day, i) => {
                   const isToday = day.dateKey === todayStr;
                   const isKadirGecesi = i === KADIR_GECESI_INDEX;
-                  const isBayram = BAYRAM_DATES.includes(day.dateKey);
-                  const isSpecial = isKadirGecesi || isBayram;
+                  const isBayram = i === BAYRAM_INDEX;
 
-                  let specialLabel = "";
-                  if (isKadirGecesi) specialLabel = "✨ Kadir Gecesi";
-                  if (isBayram) {
-                    const bayramDay = BAYRAM_DATES.indexOf(day.dateKey) + 1;
-                    specialLabel = `🎉 Bayram ${bayramDay}. Gün`;
-                  }
+                  const dayLabel = isBayram ? "🎉" : String(i + 1);
+                  const dateLabel = isBayram ? `${day.dateLabel} — Ramazan Bayramı` : day.dateLabel;
 
                   return (
                     <tr
@@ -93,20 +88,21 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                       }`}
                       style={{ borderColor: "hsl(var(--gold) / 0.1)" }}
                     >
-                      <td className={`px-3 py-2.5 font-semibold ${isToday ? "text-gold" : isSpecial ? "text-gold-light" : "text-cream-muted"}`}>
-                        {i + 1}
+                      <td className={`px-3 py-2.5 font-semibold ${isToday ? "text-gold" : (isKadirGecesi || isBayram) ? "text-gold-light" : "text-cream-muted"}`}>
+                        {dayLabel}
                       </td>
-                      <td className={`px-3 py-2.5 whitespace-nowrap ${isToday ? "text-gold" : isSpecial ? "text-gold-light" : "text-cream-muted"}`}>
-                        {day.dateLabel}
+                      <td className={`px-3 py-2.5 whitespace-nowrap ${isToday ? "text-gold" : (isKadirGecesi || isBayram) ? "text-gold-light" : "text-cream-muted"}`}>
+                        {dateLabel}
                       </td>
                       {prayerKeys.map((key) => (
                         <td
                           key={key}
                           className={`px-3 py-2.5 text-center font-mono ${
+                            isBayram && key === "Sunrise" ? "text-gold-light font-semibold" :
                             isToday ? "text-gold font-semibold" : "text-cream"
                           }`}
                         >
-                          {day.times[key]}
+                          {isBayram && key === "Sunrise" ? `🕌 ${day.times[key]}` : day.times[key]}
                         </td>
                       ))}
                     </tr>
