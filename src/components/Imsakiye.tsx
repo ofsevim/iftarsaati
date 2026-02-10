@@ -60,7 +60,7 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                       {PRAYER_LABELS[key]}
                     </th>
                   ))}
-                  <th className="px-3 py-3 text-center text-gold-light font-display text-xs md:text-sm">Özel Gün</th>
+                  
                 </tr>
               </thead>
               <tbody>
@@ -109,11 +109,6 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                           {day.times[key]}
                         </td>
                       ))}
-                      <td className={`px-3 py-2.5 text-center text-xs whitespace-nowrap font-medium ${
-                        isKadirGecesi ? "text-[hsl(280,70%,70%)]" : isBayram ? "text-[hsl(120,60%,65%)]" : "text-cream-muted"
-                      }`}>
-                        {specialLabel}
-                      </td>
                     </tr>
                   );
                 })}
