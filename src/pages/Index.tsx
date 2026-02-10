@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { MapPin, Search, ChevronDown, Moon } from "lucide-react";
+import Imsakiye from "@/components/Imsakiye";
 import bgPattern from "@/assets/bg-pattern.jpg";
 import {
   TURKEY_CITIES,
@@ -227,6 +228,9 @@ const Index = () => {
             </div>
           </div>
         )}
+
+        {/* Imsakiye */}
+        <Imsakiye city={selectedCity} />
 
         {/* Footer */}
         <div className="mt-auto pt-8 text-center">
