@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
-import { MapPin, Search, ChevronDown, Moon, Star } from "lucide-react";
+import { MapPin, Search, ChevronDown, Moon } from "lucide-react";
 import Imsakiye from "@/components/Imsakiye";
 import bgPattern from "@/assets/bg-pattern.jpg";
 import {
   TURKEY_CITIES,
+  QUICK_CITIES,
   PRAYER_LABELS,
   PRAYER_ICONS,
   type City,
@@ -24,12 +25,6 @@ const Index = () => {
     }
     return TURKEY_CITIES.find((c) => c.name === "İstanbul")!;
   });
-  
-  const [favoriteCities, setFavoriteCities] = useState<string[]>(() => {
-    const saved = localStorage.getItem("favoriteCities");
-    return saved ? JSON.parse(saved) : [];
-  });
-  
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0, passed: false });
   const [loading, setLoading] = useState(true);
@@ -77,21 +72,6 @@ const Index = () => {
     setSearchQuery("");
   };
 
-  const toggleFavorite = (cityName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const newFavorites = favoriteCities.includes(cityName)
-      ? favoriteCities.filter((c) => c !== cityName)
-      : [...favoriteCities, cityName];
-    setFavoriteCities(newFavorites);
-    localStorage.setItem("favoriteCities", JSON.stringify(newFavorites));
-  };
-
-  const isFavorite = (cityName: string) => favoriteCities.includes(cityName);
-
-  const favoriteCityObjects = favoriteCities
-    .map((name) => TURKEY_CITIES.find((c) => c.name === name))
-    .filter((c): c is City => c !== undefined);
-
   const filteredCities = TURKEY_CITIES.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -125,20 +105,21 @@ const Index = () => {
 
         {/* City Selection */}
         <div className="w-full max-w-2xl mb-8 space-y-4">
-          {/* Favorite Cities */}
-          {favoriteCityObjects.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2">
-              {favoriteCityObjects.map((city) => (
+          {/* Quick Cities */}
+          <div className="flex flex-wrap justify-center gap-2">
+            {QUICK_CITIES.map((name) => {
+              const city = TURKEY_CITIES.find((c) => c.name === name)!;
+              return (
                 <button
-                  key={city.name}
+                  key={name}
                   onClick={() => handleCitySelect(city)}
-                  className={`quick-btn ${selectedCity.name === city.name ? "selected" : ""}`}
+                  className={`quick-btn ${selectedCity.name === name ? "selected" : ""}`}
                 >
-                  {city.name}
+                  {name}
                 </button>
-              ))}
-            </div>
-          )}
+              );
+            })}
+          </div>
 
           {/* Location & Dropdown Row */}
           <div className="flex gap-3 justify-center">
