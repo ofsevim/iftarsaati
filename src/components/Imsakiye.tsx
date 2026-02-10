@@ -69,7 +69,7 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                   const isKadirGecesi = i === KADIR_GECESI_INDEX;
                   const isBayram = i === BAYRAM_INDEX;
 
-                  const dayLabel = isBayram ? "🎉" : String(i + 1);
+                  const dayLabel = isBayram ? "🌙" : String(i + 1);
                   const dateLabel = isBayram ? `${day.dateLabel} — Ramazan Bayramı` : day.dateLabel;
 
                   return (
@@ -99,6 +99,7 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                           key={key}
                           className={`px-3 py-2.5 text-center font-mono ${
                             isBayram && key === "Sunrise" ? "text-gold-light font-semibold" :
+                            isBayram ? "text-gold-light font-semibold" :
                             isToday ? "text-gold font-semibold" : "text-cream"
                           }`}
                         >

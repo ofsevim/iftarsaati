@@ -88,7 +88,7 @@ export const TURKEY_CITIES: City[] = [
   { name: "Zonguldak", lat: 41.4564, lng: 31.7987 },
 ];
 
-export const QUICK_CITIES = ["İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "Konya"];
+export const QUICK_CITIES = ["Ankara", "İstanbul", "Kahramanmaraş", "İzmir", "Bursa", "Antalya", "Konya"];
 
 export interface PrayerTimes {
   Fajr: string;

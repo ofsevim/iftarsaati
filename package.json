@@ -1,8 +1,9 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "iftar-vakti",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Türkiye için Ramazan imsakiyesi ve namaz vakitleri uygulaması",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

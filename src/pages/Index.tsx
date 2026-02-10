@@ -18,9 +18,14 @@ import {
 } from "@/lib/prayer-api";
 
 const Index = () => {
-  const [selectedCity, setSelectedCity] = useState<City>(
-    TURKEY_CITIES.find((c) => c.name === "İstanbul")!
-  );
+  const [selectedCity, setSelectedCity] = useState<City>(() => {
+    const savedCity = localStorage.getItem("selectedCity");
+    if (savedCity) {
+      const city = TURKEY_CITIES.find((c) => c.name === savedCity);
+      if (city) return city;
+    }
+    return TURKEY_CITIES.find((c) => c.name === "İstanbul")!;
+  });
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0, passed: false });
   const [loading, setLoading] = useState(true);
@@ -37,6 +42,7 @@ const Index = () => {
 
   useEffect(() => {
     loadPrayerTimes(selectedCity);
+    localStorage.setItem("selectedCity", selectedCity.name);
   }, [selectedCity, loadPrayerTimes]);
 
   useEffect(() => {
