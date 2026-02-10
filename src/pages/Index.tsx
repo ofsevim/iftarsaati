@@ -161,8 +161,8 @@ const Index = () => {
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 right-0 glass-card gold-border z-50 max-h-64 overflow-hidden flex flex-col">
-                  <div className="p-2 border-b border-border">
+                <div className="absolute top-full mt-2 left-0 right-0 glass-card gold-border z-50 overflow-hidden flex flex-col min-w-[280px]">
+                  <div className="p-2 border-b border-border flex-shrink-0">
                     <div className="flex items-center gap-2 bg-input rounded-lg px-3 py-2">
                       <Search className="w-4 h-4 text-muted-foreground" />
                       <input
@@ -175,7 +175,7 @@ const Index = () => {
                       />
                     </div>
                   </div>
-                  <div className="overflow-y-auto max-h-48">
+                  <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
                     {filteredCities.map((city) => (
                       <div
                         key={city.name}
@@ -187,20 +187,21 @@ const Index = () => {
                       >
                         <button
                           onClick={() => handleCitySelect(city)}
-                          className="flex-1 text-left cursor-pointer"
+                          className="flex-1 text-left"
                         >
                           {city.name}
                         </button>
                         <button
                           onClick={(e) => toggleFavorite(city.name, e)}
-                          className="ml-2 p-1 hover:scale-110 transition-transform cursor-pointer"
+                          className="ml-2 p-1.5 hover:scale-110 transition-transform flex-shrink-0"
                           aria-label={isFavorite(city.name) ? "Favorilerden çıkar" : "Favorilere ekle"}
+                          type="button"
                         >
                           <Star
                             className={`w-4 h-4 ${
                               isFavorite(city.name)
                                 ? "fill-gold text-gold"
-                                : "text-cream-muted"
+                                : "text-cream-muted hover:text-gold"
                             }`}
                           />
                         </button>
