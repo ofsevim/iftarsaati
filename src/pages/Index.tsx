@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { MapPin, Search, ChevronDown, Moon, Star } from "lucide-react";
 import Imsakiye from "@/components/Imsakiye";
 import bgPattern from "@/assets/bg-pattern.jpg";
@@ -32,6 +32,20 @@ const Index = () => {
   const [locating, setLocating] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [dropdownOpen]);
   const [favoriteCities, setFavoriteCities] = useState<string[]>(() => {
     const saved = localStorage.getItem("favoriteCities");
     if (saved) return JSON.parse(saved);
@@ -102,6 +116,28 @@ const Index = () => {
       />
       <div className="fixed inset-0 bg-background/60" />
 
+      {/* Side Ornaments - Visible on all screens, but keep them subtle on mobile */}
+      <div className="fixed inset-y-0 left-0 w-8 md:w-16 z-0 opacity-40 md:opacity-60 pointer-events-none">
+        <div
+          className="h-full w-full bg-repeat-y bg-contain"
+          style={{
+            backgroundImage: `url(${bgPattern})`,
+            backgroundPosition: 'left center'
+          }}
+        />
+        <div className="absolute inset-y-0 right-0 w-[1px] bg-gold/20" />
+      </div>
+      <div className="fixed inset-y-0 right-0 w-8 md:w-16 z-0 opacity-40 md:opacity-60 pointer-events-none">
+        <div
+          className="h-full w-full bg-repeat-y bg-contain"
+          style={{
+            backgroundImage: `url(${bgPattern})`,
+            backgroundPosition: 'right center'
+          }}
+        />
+        <div className="absolute inset-y-0 left-0 w-[1px] bg-gold/20" />
+      </div>
+
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col items-center px-4 py-8 md:py-12">
         {/* Header */}
@@ -138,24 +174,23 @@ const Index = () => {
           </div>
 
           {/* Location & Dropdown Row */}
-          <div className="flex gap-3 justify-center">
+          <div className="flex gap-2 sm:gap-3 justify-center w-full">
             <button
               onClick={handleLocate}
               disabled={locating}
-              className="glass-card gold-border px-4 py-2.5 flex items-center gap-2 text-sm text-cream-muted hover:text-gold transition-colors cursor-pointer"
+              className="glass-card gold-border px-3 sm:px-4 py-2.5 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream-muted hover:text-gold transition-colors cursor-pointer shrink-0"
             >
-              <MapPin className="w-4 h-4" />
-              {locating ? "Aranıyor..." : "Konumu Bul"}
+              <MapPin className="w-3.5 h-3.5 sm:w-4 h-4" />
+              <span className="whitespace-nowrap">{locating ? "..." : "Konum"}</span>
             </button>
 
-            <div className="relative">
+            <div className="relative flex-grow max-w-[200px]" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
-                className="glass-card gold-border px-4 py-2.5 flex items-center gap-2 text-sm text-cream w-[200px] justify-between"
+                className="glass-card gold-border px-3 sm:px-4 py-2.5 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream w-full justify-between"
               >
                 <span className="truncate">{selectedCity.name}</span>
-                <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {dropdownOpen && (
@@ -179,8 +214,8 @@ const Index = () => {
                         <div
                           key={city.name}
                           className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors cursor-pointer ${selectedCity.name === city.name
-                              ? "bg-night-light"
-                              : "hover:bg-night-light"
+                            ? "bg-night-light"
+                            : "hover:bg-night-light"
                             }`}
                           onClick={() => handleCitySelect(city)}
                         >
