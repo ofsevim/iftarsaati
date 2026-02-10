@@ -11,27 +11,54 @@ const MONTH_NAMES = [
   "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
 ];
 
-const PRAYER_API_TIMEOUT = 10000; // 10 seconds
+const PRAYER_API_TIMEOUT = 15000; // 15 saniye — yavaş mobil bağlantılar için
 
+/**
+ * Belirtilen URL'ye retry + timeout + CORS desteği ile istek atar.
+ * - Her deneme arasında exponential backoff uygular.
+ * - Başarısız yanıtların body'sini tüketir (bağlantı sızıntısını önler).
+ * - AbortController desteği olmayan eski tarayıcılarda da çalışır.
+ */
 async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
+  let lastError: unknown;
+
   for (let i = 0; i < retries; i++) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), PRAYER_API_TIMEOUT);
+    let controller: AbortController | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     try {
+      // Bazı eski mobil tarayıcılarda AbortController yoktur
+      if (typeof AbortController !== "undefined") {
+        controller = new AbortController();
+        timeoutId = setTimeout(() => controller!.abort(), PRAYER_API_TIMEOUT);
+      }
+
       const response = await fetch(url, {
-        signal: controller.signal
+        signal: controller?.signal,
+        mode: "cors",              // Açıkça CORS belirt
+        cache: "no-store",         // Tarayıcı disk cache'inden bozuk yanıt gelmesin
+        credentials: "omit",       // Cookie gönderme — gereksiz CORS preflight'ı önler
       });
-      clearTimeout(timeoutId);
+
+      if (timeoutId) clearTimeout(timeoutId);
+
       if (response.ok) return response;
+
+      // Başarısız yanıtın body'sini tüket (bağlantı havuzunu serbest bırak)
+      try { await response.text(); } catch { /* ignore */ }
+      lastError = new Error(`HTTP ${response.status}`);
     } catch (error) {
-      clearTimeout(timeoutId);
-      if (i === retries - 1) throw error;
-      // Exponential backoff
-      await new Promise(res => setTimeout(res, 1000 * Math.pow(2, i)));
+      if (timeoutId) clearTimeout(timeoutId);
+      lastError = error;
+    }
+
+    // Son deneme değilse bekle (exponential backoff)
+    if (i < retries - 1) {
+      await new Promise((res) => setTimeout(res, 1000 * Math.pow(2, i)));
     }
   }
-  throw new Error("Failed to fetch after retries");
+
+  throw lastError ?? new Error("Failed to fetch after retries");
 }
 
 export async function fetchMonthlyPrayerTimes(
@@ -55,7 +82,19 @@ export async function fetchMonthlyPrayerTimes(
       const res = await fetchWithRetry(
         `https://api.aladhan.com/v1/calendar/${year}/${month}?latitude=${city.lat}&longitude=${city.lng}&method=13`
       );
-      const json = await res.json();
+
+      let json: any;
+      try {
+        json = await res.json();
+      } catch {
+        console.error("Monthly API: Geçersiz JSON yanıtı");
+        continue;
+      }
+
+      if (!json?.data || !Array.isArray(json.data)) {
+        console.error("Monthly API: Beklenmeyen yanıt yapısı", json);
+        continue;
+      }
 
       for (const dayData of json.data) {
         const g = dayData.date.gregorian;
@@ -120,10 +159,23 @@ export async function fetchPrayerTimesForDate(
       `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${city.lat}&longitude=${city.lng}&method=13`
     );
 
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      console.error("Prayer API: Geçersiz JSON yanıtı");
+      return null;
+    }
+
+    // Yanıt yapısını doğrula
+    if (!data?.data?.timings) {
+      console.error("Prayer API: Beklenmeyen yanıt yapısı", data);
+      return null;
+    }
+
     const timings = data.data.timings;
 
-    // Helper to normalize time strings (handle "18:13 (TRT)" format)
+    // Helper: "18:13 (TRT)" → "18:13"
     const normalizeTime = (t: string) => t.split(" ")[0];
 
     return {

@@ -63,7 +63,9 @@ const Index = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as string[];
-        const filtered = parsed.filter((name) => QUICK_CITIES.includes(name));
+        // Geçerli şehirleri filtrele (TURKEY_CITIES'te olmayanları çıkar)
+        const validCityNames = TURKEY_CITIES.map((c) => c.name);
+        const filtered = parsed.filter((name) => validCityNames.includes(name));
         if (filtered.length) return filtered;
       } catch (error) {
         console.error("Failed to parse favorite cities:", error);
@@ -74,7 +76,8 @@ const Index = () => {
 
   const toggleFavorite = (cityName: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!QUICK_CITIES.includes(cityName)) return;
+    // Tüm geçerli şehirler favorilere eklenebilir
+    if (!TURKEY_CITIES.some((c) => c.name === cityName)) return;
     const newFavorites = favoriteCities.includes(cityName)
       ? favoriteCities.filter((name) => name !== cityName)
       : [...favoriteCities, cityName];

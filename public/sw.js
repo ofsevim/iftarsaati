@@ -1,5 +1,5 @@
-const CACHE_NAME = 'iftar-vakti-v1';
-const urlsToCache = [
+const CACHE_NAME = 'iftar-vakti-v2';
+const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
@@ -8,46 +8,52 @@ const urlsToCache = [
   '/icon-512.svg',
 ];
 
-// Install event
+// Install: statik dosyaları cache'le
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
+      .then((cache) => cache.addAll(STATIC_ASSETS))
   );
   self.skipWaiting();
 });
 
-// Activate event
+// Activate: eski cache'leri temizle
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    caches.keys().then((cacheNames) =>
+      Promise.all(
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      )
+    )
   );
   self.clients.claim();
 });
 
-// Fetch event - Network first, fallback to cache
+// Fetch: Sadece aynı origin'deki istekleri cache'le.
+// API (cross-origin) isteklerine dokunma — doğrudan ağa gönder.
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Cross-origin istekler (API vb.) — service worker araya girmesin
+  if (url.origin !== self.location.origin) {
+    return; // Tarayıcının varsayılan davranışına bırak
+  }
+
+  // Aynı origin (statik dosyalar) — network first, cache fallback
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Clone the response
-        const responseToCache = response.clone();
-        caches.open(CACHE_NAME)
-          .then((cache) => {
-            cache.put(event.request, responseToCache);
+        // Sadece başarılı yanıtları cache'le
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, clone);
           });
+        }
         return response;
       })
-      .catch(() => {
-        return caches.match(event.request);
-      })
+      .catch(() => caches.match(event.request))
   );
 });
