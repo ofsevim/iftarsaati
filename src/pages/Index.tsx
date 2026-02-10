@@ -161,8 +161,8 @@ const Index = () => {
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 right-0 glass-card gold-border z-50 overflow-hidden flex flex-col min-w-[280px]">
-                  <div className="p-2 border-b border-border flex-shrink-0">
+                <div className="absolute top-full mt-2 left-0 right-0 glass-card gold-border z-50 max-h-64 overflow-hidden flex flex-col">
+                  <div className="p-2 border-b border-border">
                     <div className="flex items-center gap-2 bg-input rounded-lg px-3 py-2">
                       <Search className="w-4 h-4 text-muted-foreground" />
                       <input
@@ -175,37 +175,19 @@ const Index = () => {
                       />
                     </div>
                   </div>
-                  <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
+                  <div className="overflow-y-auto max-h-48">
                     {filteredCities.map((city) => (
-                      <div
+                      <button
                         key={city.name}
-                        className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors ${
+                        onClick={() => handleCitySelect(city)}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors cursor-pointer ${
                           selectedCity.name === city.name
                             ? "text-gold bg-night-light"
                             : "text-cream-muted hover:text-cream hover:bg-night-light"
                         }`}
                       >
-                        <button
-                          onClick={() => handleCitySelect(city)}
-                          className="flex-1 text-left"
-                        >
-                          {city.name}
-                        </button>
-                        <button
-                          onClick={(e) => toggleFavorite(city.name, e)}
-                          className="ml-2 p-1.5 hover:scale-110 transition-transform flex-shrink-0"
-                          aria-label={isFavorite(city.name) ? "Favorilerden çıkar" : "Favorilere ekle"}
-                          type="button"
-                        >
-                          <Star
-                            className={`w-4 h-4 ${
-                              isFavorite(city.name)
-                                ? "fill-gold text-gold"
-                                : "text-cream-muted hover:text-gold"
-                            }`}
-                          />
-                        </button>
-                      </div>
+                        {city.name}
+                      </button>
                     ))}
                   </div>
                 </div>
