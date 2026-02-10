@@ -397,6 +397,13 @@ const Index = () => {
 
         {/* Imsakiye */}
         <Imsakiye city={selectedCity} />
+
+        {/* Footer */}
+        <footer className="mt-10 mb-4 text-center">
+          <p className="text-xs text-cream-muted/50">
+            Bu bir <span className="text-gold/60 font-medium">Osoft</span> ürünüdür
+          </p>
+        </footer>
       </div>
     </div>
   );

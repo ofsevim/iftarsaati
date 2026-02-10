@@ -1,92 +1,142 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
   <defs>
     <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#1a2332;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#0f1419;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#162033;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#0f1923;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0a1118;stop-opacity:1" />
     </linearGradient>
     <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#e6c068;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#c9a961;stop-opacity:1" />
+      <stop offset="0%" style="stop-color:#f0d478;stop-opacity:1" />
+      <stop offset="40%" style="stop-color:#d4af5c;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#b8935a;stop-opacity:1" />
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+    <linearGradient id="goldGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#c9a961;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#e6c878;stop-opacity:1" />
+    </linearGradient>
+    <filter id="moonGlow">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feFlood flood-color="#c9a961" flood-opacity="0.35" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
       <feMerge>
-        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="glow"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
-    <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-      <circle cx="2" cy="2" r="1" fill="#c9a961" opacity="0.1"/>
+    <filter id="starGlow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feFlood flood-color="#e6c878" flood-opacity="0.4" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="textGlow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#c9a961" flood-opacity="0.3" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Geometrik İslami desen -->
+    <pattern id="islamicPat" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 60 30 L 30 60 L 0 30 Z" fill="none" stroke="#c9a961" stroke-width="0.3" opacity="0.08"/>
+      <circle cx="30" cy="30" r="4" fill="none" stroke="#c9a961" stroke-width="0.3" opacity="0.06"/>
     </pattern>
   </defs>
   
-  <!-- Background -->
+  <!-- Arka plan -->
   <rect width="1200" height="630" fill="url(#bgGrad)"/>
-  <rect width="1200" height="630" fill="url(#dots)"/>
+  <rect width="1200" height="630" fill="url(#islamicPat)"/>
   
-  <!-- Decorative elements -->
-  <circle cx="100" cy="100" r="150" fill="#c9a961" opacity="0.03"/>
-  <circle cx="1100" cy="530" r="200" fill="#c9a961" opacity="0.03"/>
+  <!-- Dekoratif halkalar -->
+  <circle cx="160" cy="315" r="260" fill="none" stroke="#c9a961" stroke-width="0.5" opacity="0.06"/>
+  <circle cx="160" cy="315" r="220" fill="none" stroke="#c9a961" stroke-width="0.5" opacity="0.04"/>
   
-  <!-- Main crescent moon -->
-  <g filter="url(#glow)">
-    <path d="M 300 200 C 220 200 155 265 155 345 C 155 425 220 490 300 490 C 325 490 348 483 368 472 C 315 452 278 401 278 341 C 278 265 338 205 414 205 C 428 205 442 207 455 211 C 428 204 365 200 300 200 Z" 
-          fill="url(#goldGrad)" 
-          stroke="#e6c068" 
-          stroke-width="3"/>
+  <!-- Cami kubbesi silüeti -->
+  <g opacity="0.06">
+    <path d="M 0 630 L 0 520 Q 80 440 160 520 L 160 630 Z" fill="#c9a961"/>
+    <rect x="70" y="440" width="8" height="80" fill="#c9a961"/>
+    <circle cx="74" cy="435" r="6" fill="#c9a961"/>
+    <path d="M 1200 630 L 1200 540 Q 1140 480 1080 540 L 1080 630 Z" fill="#c9a961"/>
   </g>
   
-  <!-- Star -->
-  <g filter="url(#glow)">
-    <path d="M 480 240 L 495 280 L 537 280 L 503 305 L 518 345 L 480 320 L 442 345 L 457 305 L 423 280 L 465 280 Z" 
-          fill="url(#goldGrad)" 
-          stroke="#e6c068" 
-          stroke-width="2"/>
+  <!-- Hilal -->
+  <g filter="url(#moonGlow)">
+    <path d="M 220 170 
+             C 145 185 90 255 90 340 
+             C 90 430 150 502 230 515 
+             C 250 518 268 518 285 515
+             C 220 490 175 425 175 348 
+             C 175 258 230 185 305 170 
+             C 280 165 250 165 220 170 Z" 
+          fill="url(#goldGrad)"/>
   </g>
   
-  <!-- Small stars -->
-  <circle cx="520" cy="420" r="4" fill="#c9a961" opacity="0.8"/>
-  <circle cx="560" cy="450" r="3" fill="#c9a961" opacity="0.7"/>
-  <circle cx="490" cy="470" r="3" fill="#c9a961" opacity="0.7"/>
-  <circle cx="180" cy="520" r="4" fill="#c9a961" opacity="0.6"/>
-  <circle cx="220" cy="540" r="3" fill="#c9a961" opacity="0.5"/>
+  <!-- Büyük yıldız -->
+  <g filter="url(#starGlow)">
+    <path d="M 370 210 L 385 250 L 428 250 L 393 275 L 406 315 L 370 290 L 334 315 L 347 275 L 312 250 L 355 250 Z" 
+          fill="url(#goldGrad2)"/>
+  </g>
   
-  <!-- Main title -->
-  <text x="650" y="240" 
-        font-family="Georgia, serif" 
-        font-size="110" 
-        font-weight="bold" 
-        fill="url(#goldGrad)" 
-        letter-spacing="3">İFTAR VAKTİ</text>
+  <!-- Küçük yıldızlar -->
+  <g opacity="0.7">
+    <circle cx="440" cy="170" r="2.5" fill="#e6c878"/>
+    <circle cx="480" cy="400" r="2" fill="#c9a961"/>
+    <circle cx="150" cy="560" r="2" fill="#c9a961"/>
+    <circle cx="320" cy="440" r="1.5" fill="#c9a961"/>
+    <circle cx="420" cy="480" r="1.8" fill="#d4af5c"/>
+    <circle cx="260" cy="140" r="1.5" fill="#e6c878"/>
+    <circle cx="1050" cy="150" r="2" fill="#c9a961"/>
+    <circle cx="1100" cy="350" r="1.5" fill="#c9a961"/>
+    <circle cx="950" cy="480" r="1.8" fill="#c9a961"/>
+  </g>
   
-  <!-- Subtitle -->
-  <text x="650" y="310" 
-        font-family="Georgia, serif" 
-        font-size="42" 
+  <!-- Altın ayırıcı çizgi -->
+  <line x1="550" y1="180" x2="550" y2="460" stroke="url(#goldGrad)" stroke-width="1.5" opacity="0.2"/>
+  
+  <!-- Ana başlık -->
+  <g filter="url(#textGlow)">
+    <text x="620" y="260" 
+          font-family="Georgia, 'Times New Roman', serif" 
+          font-size="96" 
+          font-weight="bold" 
+          fill="url(#goldGrad)" 
+          letter-spacing="4">İFTAR VAKTİ</text>
+  </g>
+  
+  <!-- Alt başlık -->
+  <text x="620" y="320" 
+        font-family="Georgia, 'Times New Roman', serif" 
+        font-size="36" 
         fill="#c9a961" 
-        opacity="0.9"
-        letter-spacing="2">Ramazan İmsakiyesi 2026</text>
+        opacity="0.85"
+        letter-spacing="6">RAMAZANİMSAKİYESİ 2026</text>
   
-  <!-- Description -->
-  <text x="650" y="380" 
-        font-family="Arial, sans-serif" 
-        font-size="32" 
+  <!-- Ayırıcı -->
+  <line x1="620" y1="350" x2="920" y2="350" stroke="#c9a961" stroke-width="1" opacity="0.3"/>
+  <circle cx="770" cy="350" r="3" fill="#c9a961" opacity="0.4"/>
+  
+  <!-- Özellikler -->
+  <text x="620" y="400" 
+        font-family="'Segoe UI', Arial, sans-serif" 
+        font-size="28" 
         fill="#e5dcc8" 
-        opacity="0.8">Türkiye'nin 81 ili için</text>
-  <text x="650" y="425" 
-        font-family="Arial, sans-serif" 
-        font-size="32" 
+        opacity="0.75">Türkiye'nin 81 ili için namaz vakitleri</text>
+  <text x="620" y="440" 
+        font-family="'Segoe UI', Arial, sans-serif" 
+        font-size="28" 
         fill="#e5dcc8" 
-        opacity="0.8">namaz vakitleri ve imsakiye</text>
+        opacity="0.75">İftar geri sayımı · Konum desteği</text>
   
-  <!-- Bottom decoration -->
-  <line x1="650" y1="480" x2="950" y2="480" stroke="#c9a961" stroke-width="2" opacity="0.4"/>
-  
-  <!-- Features -->
-  <text x="650" y="530" 
-        font-family="Arial, sans-serif" 
-        font-size="26" 
+  <!-- Footer -->
+  <text x="1180" y="610" 
+        font-family="'Segoe UI', Arial, sans-serif" 
+        font-size="18" 
         fill="#c9a961" 
-        opacity="0.7">🌙 İftar Geri Sayımı  •  📍 Konum Desteği  •  📱 PWA</text>
+        opacity="0.4"
+        text-anchor="end">Osoft</text>
 </svg>

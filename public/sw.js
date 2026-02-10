@@ -4,8 +4,10 @@ const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/icon.svg',
-  '/icon-192.svg',
-  '/icon-512.svg',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/favicon.png',
+  '/favicon-48.png',
 ];
 
 // Install: statik dosyaları cache'le
