@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="goldGradient512" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#e6c068;stop-opacity:1" />
       <stop offset="50%" style="stop-color:#c9a961;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#b8935a;stop-opacity:1" />
     </linearGradient>
-    <radialGradient id="bgGradient" cx="50%" cy="50%" r="50%">
+    <radialGradient id="bgGradient512" cx="50%" cy="50%" r="50%">
       <stop offset="0%" style="stop-color:#1a2332;stop-opacity:1" />
       <stop offset="100%" style="stop-color:#0f1419;stop-opacity:1" />
     </radialGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+    <filter id="glow512">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -18,37 +18,32 @@
     </filter>
   </defs>
   
-  <!-- Background -->
-  <rect width="512" height="512" fill="url(#bgGradient)" rx="90"/>
+  <rect width="512" height="512" fill="url(#bgGradient512)" rx="90"/>
   
-  <!-- Crescent Moon -->
-  <g filter="url(#glow)">
+  <g filter="url(#glow512)">
     <path d="M 256 100 C 190 100 136 154 136 220 C 136 286 190 340 256 340 C 275 340 293 336 309 329 C 270 315 242 277 242 233 C 242 177 286 133 342 133 C 353 133 364 135 374 138 C 354 115 308 100 256 100 Z" 
-          fill="url(#goldGradient)" 
+          fill="url(#goldGradient512)" 
           stroke="#e6c068" 
           stroke-width="2"/>
   </g>
   
-  <!-- Star -->
-  <g filter="url(#glow)">
+  <g filter="url(#glow512)">
     <path d="M 390 180 L 398 205 L 424 205 L 403 220 L 411 245 L 390 230 L 369 245 L 377 220 L 356 205 L 382 205 Z" 
-          fill="url(#goldGradient)" 
+          fill="url(#goldGradient512)" 
           stroke="#e6c068" 
           stroke-width="1.5"/>
   </g>
   
-  <!-- Decorative dots -->
   <circle cx="150" cy="380" r="4" fill="#c9a961" opacity="0.6"/>
   <circle cx="180" cy="400" r="3" fill="#c9a961" opacity="0.5"/>
   <circle cx="360" cy="360" r="3" fill="#c9a961" opacity="0.5"/>
   <circle cx="380" cy="390" r="4" fill="#c9a961" opacity="0.6"/>
   
-  <!-- Text -->
   <text x="256" y="430" 
         font-family="Georgia, serif" 
         font-size="90" 
         font-weight="bold" 
-        fill="url(#goldGradient)" 
+        fill="url(#goldGradient512)" 
         text-anchor="middle"
         letter-spacing="2">İFTAR</text>
   <text x="256" y="475" 
