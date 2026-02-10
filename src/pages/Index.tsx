@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { MapPin, Search, ChevronDown, Moon } from "lucide-react";
+import { MapPin, Search, ChevronDown, Moon, Star } from "lucide-react";
 import Imsakiye from "@/components/Imsakiye";
 import bgPattern from "@/assets/bg-pattern.jpg";
 import {
@@ -32,6 +32,20 @@ const Index = () => {
   const [locating, setLocating] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [favoriteCities, setFavoriteCities] = useState<string[]>(() => {
+    const saved = localStorage.getItem("favoriteCities");
+    if (saved) return JSON.parse(saved);
+    return QUICK_CITIES;
+  });
+
+  const toggleFavorite = (cityName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newFavorites = favoriteCities.includes(cityName)
+      ? favoriteCities.filter((name) => name !== cityName)
+      : [...favoriteCities, cityName];
+    setFavoriteCities(newFavorites);
+    localStorage.setItem("favoriteCities", JSON.stringify(newFavorites));
+  };
 
   const loadPrayerTimes = useCallback(async (city: City) => {
     setLoading(true);
@@ -108,8 +122,9 @@ const Index = () => {
         <div className="w-full max-w-2xl mb-8 space-y-4">
           {/* Quick Cities */}
           <div className="flex flex-wrap justify-center gap-2">
-            {QUICK_CITIES.map((name) => {
-              const city = TURKEY_CITIES.find((c) => c.name === name)!;
+            {favoriteCities.map((name) => {
+              const city = TURKEY_CITIES.find((c) => c.name === name);
+              if (!city) return null;
               return (
                 <button
                   key={name}
@@ -158,18 +173,32 @@ const Index = () => {
                     </div>
                   </div>
                   <div className="overflow-y-auto max-h-[300px]">
-                    {filteredCities.map((city) => (
-                      <button
-                        key={city.name}
-                        onMouseDown={() => handleCitySelect(city)}
-                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedCity.name === city.name
-                          ? "text-gold bg-night-light"
-                          : "text-cream-muted hover:text-cream hover:bg-night-light"
-                          }`}
-                      >
-                        {city.name}
-                      </button>
-                    ))}
+                    {filteredCities.map((city) => {
+                      const isFavorite = favoriteCities.includes(city.name);
+                      return (
+                        <div
+                          key={city.name}
+                          className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors cursor-pointer ${selectedCity.name === city.name
+                              ? "bg-night-light"
+                              : "hover:bg-night-light"
+                            }`}
+                          onClick={() => handleCitySelect(city)}
+                        >
+                          <span className={selectedCity.name === city.name ? "text-gold" : "text-cream-muted"}>
+                            {city.name}
+                          </span>
+                          <button
+                            onClick={(e) => toggleFavorite(city.name, e)}
+                            className="p-1 hover:text-gold transition-colors"
+                          >
+                            <Star
+                              className={`w-4 h-4 ${isFavorite ? "text-gold fill-gold" : "text-muted-foreground"
+                                }`}
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}

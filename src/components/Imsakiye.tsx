@@ -60,7 +60,7 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                       {PRAYER_LABELS[key]}
                     </th>
                   ))}
-                  
+
                 </tr>
               </thead>
               <tbody>
@@ -70,22 +70,21 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                   const isBayram = i === BAYRAM_INDEX;
 
                   const dayLabel = isBayram ? "🌙" : String(i + 1);
-                  const dateLabel = isBayram ? `${day.dateLabel} — Ramazan Bayramı` : day.dateLabel;
+                  const dateLabel = day.dateLabel;
 
                   return (
                     <tr
                       key={day.dateKey}
-                      className={`border-b transition-colors ${
-                        isKadirGecesi
-                          ? "bg-[hsla(280,60%,50%,0.12)]"
-                          : isBayram
+                      className={`border-b transition-colors ${isKadirGecesi
+                        ? "bg-[hsla(280,60%,50%,0.12)]"
+                        : isBayram
                           ? "bg-[hsla(120,50%,40%,0.1)]"
                           : isToday
-                          ? "bg-[hsla(36,55%,55%,0.12)]"
-                          : i % 2 === 0
-                          ? "bg-transparent"
-                          : "bg-[hsla(220,30%,15%,0.3)]"
-                      }`}
+                            ? "bg-[hsla(36,55%,55%,0.12)]"
+                            : i % 2 === 0
+                              ? "bg-transparent"
+                              : "bg-[hsla(220,30%,15%,0.3)]"
+                        }`}
                       style={{ borderColor: "hsl(var(--gold) / 0.1)" }}
                     >
                       <td className={`px-3 py-2.5 font-semibold ${isToday ? "text-gold" : (isKadirGecesi || isBayram) ? "text-gold-light" : "text-cream-muted"}`}>
@@ -97,11 +96,10 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                       {prayerKeys.map((key) => (
                         <td
                           key={key}
-                          className={`px-3 py-2.5 text-center font-mono ${
-                            isBayram && key === "Sunrise" ? "text-gold-light font-semibold" :
+                          className={`px-3 py-2.5 text-center font-mono ${isBayram && key === "Sunrise" ? "text-gold-light font-semibold" :
                             isBayram ? "text-gold-light font-semibold" :
-                            isToday ? "text-gold font-semibold" : "text-cream"
-                          }`}
+                              isToday ? "text-gold font-semibold" : "text-cream"
+                            }`}
                         >
                           {isBayram && key === "Sunrise" ? `🕌 ${day.times[key]}` : day.times[key]}
                         </td>
