@@ -142,7 +142,7 @@ const Index = () => {
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 right-0 glass-card gold-border z-50 max-h-64 overflow-hidden flex flex-col">
+                <div className="absolute top-full mt-2 left-0 right-0 glass-card gold-border z-[60] max-h-64 overflow-hidden flex flex-col min-w-[280px]">
                   <div className="p-2 border-b border-border">
                     <div className="flex items-center gap-2 bg-input rounded-lg px-3 py-2">
                       <Search className="w-4 h-4 text-muted-foreground" />
@@ -156,12 +156,12 @@ const Index = () => {
                       />
                     </div>
                   </div>
-                  <div className="overflow-y-auto max-h-48">
+                  <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
                     {filteredCities.map((city) => (
                       <button
                         key={city.name}
                         onClick={() => handleCitySelect(city)}
-                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors cursor-pointer ${
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
                           selectedCity.name === city.name
                             ? "text-gold bg-night-light"
                             : "text-cream-muted hover:text-cream hover:bg-night-light"
