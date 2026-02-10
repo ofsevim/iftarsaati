@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a2332;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f1419;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e6c068;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#c9a961;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#b8935a;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <pattern id="dots" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#c9a961" opacity="0.1"/>
+    </pattern>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+  <rect width="1200" height="630" fill="url(#dots)"/>
+  
+  <!-- Decorative elements -->
+  <circle cx="100" cy="100" r="150" fill="#c9a961" opacity="0.03"/>
+  <circle cx="1100" cy="530" r="200" fill="#c9a961" opacity="0.03"/>
+  
+  <!-- Main crescent moon -->
+  <g filter="url(#glow)">
+    <path d="M 300 200 C 220 200 155 265 155 345 C 155 425 220 490 300 490 C 325 490 348 483 368 472 C 315 452 278 401 278 341 C 278 265 338 205 414 205 C 428 205 442 207 455 211 C 428 204 365 200 300 200 Z" 
+          fill="url(#goldGrad)" 
+          stroke="#e6c068" 
+          stroke-width="3"/>
+  </g>
+  
+  <!-- Star -->
+  <g filter="url(#glow)">
+    <path d="M 480 240 L 495 280 L 537 280 L 503 305 L 518 345 L 480 320 L 442 345 L 457 305 L 423 280 L 465 280 Z" 
+          fill="url(#goldGrad)" 
+          stroke="#e6c068" 
+          stroke-width="2"/>
+  </g>
+  
+  <!-- Small stars -->
+  <circle cx="520" cy="420" r="4" fill="#c9a961" opacity="0.8"/>
+  <circle cx="560" cy="450" r="3" fill="#c9a961" opacity="0.7"/>
+  <circle cx="490" cy="470" r="3" fill="#c9a961" opacity="0.7"/>
+  <circle cx="180" cy="520" r="4" fill="#c9a961" opacity="0.6"/>
+  <circle cx="220" cy="540" r="3" fill="#c9a961" opacity="0.5"/>
+  
+  <!-- Main title -->
+  <text x="650" y="240" 
+        font-family="Georgia, serif" 
+        font-size="110" 
+        font-weight="bold" 
+        fill="url(#goldGrad)" 
+        letter-spacing="3">İFTAR VAKTİ</text>
+  
+  <!-- Subtitle -->
+  <text x="650" y="310" 
+        font-family="Georgia, serif" 
+        font-size="42" 
+        fill="#c9a961" 
+        opacity="0.9"
+        letter-spacing="2">Ramazan İmsakiyesi 2026</text>
+  
+  <!-- Description -->
+  <text x="650" y="380" 
+        font-family="Arial, sans-serif" 
+        font-size="32" 
+        fill="#e5dcc8" 
+        opacity="0.8">Türkiye'nin 81 ili için</text>
+  <text x="650" y="425" 
+        font-family="Arial, sans-serif" 
+        font-size="32" 
+        fill="#e5dcc8" 
+        opacity="0.8">namaz vakitleri ve imsakiye</text>
+  
+  <!-- Bottom decoration -->
+  <line x1="650" y1="480" x2="950" y2="480" stroke="#c9a961" stroke-width="2" opacity="0.4"/>
+  
+  <!-- Features -->
+  <text x="650" y="530" 
+        font-family="Arial, sans-serif" 
+        font-size="26" 
+        fill="#c9a961" 
+        opacity="0.7">🌙 İftar Geri Sayımı  •  📍 Konum Desteği  •  📱 PWA</text>
+</svg>
