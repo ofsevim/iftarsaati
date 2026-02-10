@@ -15,6 +15,7 @@ import {
   findNearestCity,
   getTimeUntilIftar,
 } from "@/lib/prayer-api";
+import { normalizeForSearch } from "@/lib/utils";
 
 const Index = () => {
   const [selectedCity, setSelectedCity] = useState<City>(() => {
@@ -73,8 +74,8 @@ const Index = () => {
   };
 
   const filteredCities = TURKEY_CITIES.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    normalizeForSearch(c.name).includes(normalizeForSearch(searchQuery))
+  ).sort((a, b) => a.name.localeCompare(b.name, "tr-TR"));
 
   const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -143,7 +144,7 @@ const Index = () => {
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 w-full glass-card gold-border overflow-hidden flex flex-col shadow-2xl">
+                <div className="absolute top-full mt-2 left-0 w-full glass-card gold-border overflow-hidden flex flex-col shadow-2xl z-50">
                   <div className="p-2 border-b border-border">
                     <div className="flex items-center gap-2 bg-input rounded-lg px-3 py-2">
                       <Search className="w-4 h-4 text-muted-foreground" />
@@ -161,11 +162,10 @@ const Index = () => {
                       <button
                         key={city.name}
                         onMouseDown={() => handleCitySelect(city)}
-                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                          selectedCity.name === city.name
-                            ? "text-gold bg-night-light"
-                            : "text-cream-muted hover:text-cream hover:bg-night-light"
-                        }`}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedCity.name === city.name
+                          ? "text-gold bg-night-light"
+                          : "text-cream-muted hover:text-cream hover:bg-night-light"
+                          }`}
                       >
                         {city.name}
                       </button>

@@ -14,6 +14,7 @@ export const TURKEY_CITIES: City[] = [
   { name: "Amasya", lat: 40.6499, lng: 35.8353 },
   { name: "Ankara", lat: 39.9334, lng: 32.8597 },
   { name: "Antalya", lat: 36.8969, lng: 30.7133 },
+  { name: "Ardahan", lat: 41.1105, lng: 42.7022 },
   { name: "Artvin", lat: 41.1828, lng: 41.8183 },
   { name: "Aydın", lat: 37.8560, lng: 27.8416 },
   { name: "Balıkesir", lat: 39.6484, lng: 27.8826 },
