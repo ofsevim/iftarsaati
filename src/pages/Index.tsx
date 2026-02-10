@@ -12,8 +12,9 @@ import {
 } from "@/data/cities";
 import {
   fetchPrayerTimes,
+  fetchPrayerTimesForDate,
   findNearestCity,
-  getTimeUntilIftar,
+  getTimeUntilIftarThenImsak,
 } from "@/lib/prayer-api";
 import { normalizeForSearch } from "@/lib/utils";
 
@@ -27,7 +28,8 @@ const Index = () => {
     return TURKEY_CITIES.find((c) => c.name === "İstanbul")!;
   });
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
-  const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0, passed: false });
+  const [tomorrowFajr, setTomorrowFajr] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "iftar" as const });
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -63,8 +65,17 @@ const Index = () => {
 
   const loadPrayerTimes = useCallback(async (city: City) => {
     setLoading(true);
-    const times = await fetchPrayerTimes(city);
-    setPrayerTimes(times);
+    const today = new Date();
+    const tomorrow = new Date();
+    tomorrow.setDate(today.getDate() + 1);
+
+    const [todayTimes, tomorrowTimes] = await Promise.all([
+      fetchPrayerTimes(city),
+      fetchPrayerTimesForDate(city, tomorrow),
+    ]);
+
+    setPrayerTimes(todayTimes);
+    setTomorrowFajr(tomorrowTimes?.Fajr ?? null);
     setLoading(false);
   }, []);
 
@@ -76,11 +87,12 @@ const Index = () => {
   useEffect(() => {
     if (!prayerTimes) return;
     const interval = setInterval(() => {
-      setCountdown(getTimeUntilIftar(prayerTimes.Maghrib));
+      // Akşam ezanı bittikten sonra otomatik olarak imsaka (sahur bitimine) kalan süreyi göster.
+      setCountdown(getTimeUntilIftarThenImsak(prayerTimes.Maghrib, tomorrowFajr ?? undefined));
     }, 1000);
-    setCountdown(getTimeUntilIftar(prayerTimes.Maghrib));
+    setCountdown(getTimeUntilIftarThenImsak(prayerTimes.Maghrib, tomorrowFajr ?? undefined));
     return () => clearInterval(interval);
-  }, [prayerTimes]);
+  }, [prayerTimes, tomorrowFajr]);
 
   const handleLocate = () => {
     if (!navigator.geolocation) return;
@@ -116,8 +128,11 @@ const Index = () => {
       />
       <div className="fixed inset-0 bg-background/60" />
 
-      {/* Side Ornaments - Visible on all screens, but keep them subtle on mobile */}
-      <div className="fixed inset-y-0 left-0 w-8 md:w-16 z-0 opacity-40 md:opacity-60 pointer-events-none">
+      {/* Side Ornaments - Mobile only */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-y-0 left-0 w-8 z-0 opacity-40 pointer-events-none md:hidden"
+      >
         <div
           className="h-full w-full bg-repeat-y bg-contain"
           style={{
@@ -127,7 +142,10 @@ const Index = () => {
         />
         <div className="absolute inset-y-0 right-0 w-[1px] bg-gold/20" />
       </div>
-      <div className="fixed inset-y-0 right-0 w-8 md:w-16 z-0 opacity-40 md:opacity-60 pointer-events-none">
+      <div
+        aria-hidden="true"
+        className="fixed inset-y-0 right-0 w-8 z-0 opacity-40 pointer-events-none md:hidden"
+      >
         <div
           className="h-full w-full bg-repeat-y bg-contain"
           style={{
@@ -244,7 +262,11 @@ const Index = () => {
         {/* Countdown */}
         <div className="mb-10 text-center">
           <h2 className="font-display text-xl md:text-2xl text-gold-light mb-6">
-            {countdown.passed ? "İftar vakti geçti" : "İftara Kalan Süre"}
+            {countdown.passed
+              ? "İftar vakti"
+              : countdown.mode === "imsak"
+                ? "Sahurun Bitimine Kalan Süre"
+                : "İftara Kalan Süre"}
           </h2>
 
           {loading ? (

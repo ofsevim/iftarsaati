@@ -93,13 +93,29 @@ export async function fetchMonthlyPrayerTimes(
 }
 
 export async function fetchPrayerTimes(city: City): Promise<PrayerTimes | null> {
-  try {
-    const today = new Date();
-    const dd = String(today.getDate()).padStart(2, "0");
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const yyyy = today.getFullYear();
-    const dateStr = `${dd}-${mm}-${yyyy}`;
+  return fetchPrayerTimesForDate(city, new Date());
+}
 
+/**
+ * Aladhan API'ye istek atmak için tarihi "DD-MM-YYYY" formatına çevirir.
+ */
+function formatDateForPrayerApi(date: Date): string {
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+
+/**
+ * Belirli bir günün namaz vakitlerini getirir.
+ * - Hata durumunda `null` döner ve konsola log basar.
+ */
+export async function fetchPrayerTimesForDate(
+  city: City,
+  date: Date
+): Promise<PrayerTimes | null> {
+  try {
+    const dateStr = formatDateForPrayerApi(date);
     const response = await fetchWithRetry(
       `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${city.lat}&longitude=${city.lng}&method=13`
     );
@@ -151,22 +167,146 @@ export function getTimeUntilIftar(maghribTime: string): {
   seconds: number;
   passed: boolean;
 } {
-  const now = new Date();
-  const [h, m] = maghribTime.split(":").map(Number);
-  const iftar = new Date(now);
-  iftar.setHours(h, m, 0, 0);
+  return getTimeUntilIftarWithEzan(maghribTime);
+}
 
-  const diff = iftar.getTime() - now.getTime();
+/**
+ * İftar sayacı:
+ * - Akşam ezanı başladığında iftar vaktidir.
+ * - Ezan bitene kadar ("ezan süresi") kullanıcıya "Hayırlı iftarlar" göstermek için `passed=true` döner.
+ * - Ezan bittikten sonra sayaç otomatik olarak ertesi günün iftarına döner (yarın Maghrib verilmişse).
+ */
+export function getTimeUntilIftarWithEzan(
+  todayMaghribTime: string,
+  tomorrowMaghribTime?: string,
+  opts?: {
+    /**
+     * Ezanın ortalama süresi (dakika). Varsayılan: 4 dk.
+     * Not: Diyanet/şehir/camiye göre değişebilir; UI davranışı için pratik bir varsayım.
+     */
+    ezanDurationMinutes?: number;
+    /** Test ve deterministik kullanım için "şu an" override. */
+    now?: Date;
+  }
+): {
+  hours: number;
+  minutes: number;
+  seconds: number;
+  passed: boolean;
+} {
+  const now = opts?.now ?? new Date();
+  const ezanDurationMinutes = opts?.ezanDurationMinutes ?? 4;
 
-  if (diff <= 0) {
+  const parseTimeOnDate = (base: Date, time: string) => {
+    const [h, m] = time.split(":").map(Number);
+    const d = new Date(base);
+    d.setHours(h, m, 0, 0);
+    return d;
+  };
+
+  const todayIftar = parseTimeOnDate(now, todayMaghribTime);
+  const ezanEnd = new Date(todayIftar.getTime() + ezanDurationMinutes * 60 * 1000);
+
+  // İftar henüz gelmediyse: bugünün iftarına say.
+  if (now.getTime() < todayIftar.getTime()) {
+    const diff = todayIftar.getTime() - now.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    return { hours, minutes, seconds, passed: false };
+  }
+
+  // İftar geldi ama ezan bitmediyse: "Hayırlı iftarlar" modunda kal.
+  if (now.getTime() <= ezanEnd.getTime()) {
     return { hours: 0, minutes: 0, seconds: 0, passed: true };
+  }
+
+  // Ezan bitti: yarının iftarına say (varsa).
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const target = tomorrowMaghribTime
+    ? parseTimeOnDate(tomorrow, tomorrowMaghribTime)
+    : new Date(todayIftar.getTime() + 24 * 60 * 60 * 1000); // fallback: aynı saat + 1 gün
+
+  const diff = target.getTime() - now.getTime();
+  if (diff <= 0) {
+    // Teorik edge-case: saat ayarı vs. vb.
+    return { hours: 0, minutes: 0, seconds: 0, passed: false };
   }
 
   const hours = Math.floor(diff / (1000 * 60 * 60));
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
   return { hours, minutes, seconds, passed: false };
+}
+
+export type IftarCountdownMode = "iftar" | "imsak";
+
+/**
+ * İftar sayacı (ezan penceresi dahil) → ezan bittikten sonra "imsaka/sahur bitimine" kalan süre.
+ *
+ * Dönüş:
+ * - `mode="iftar"` + `passed=false` => iftara kalan süre
+ * - `mode="iftar"` + `passed=true`  => iftar (ezan) anı / "Hayırlı iftarlar" penceresi
+ * - `mode="imsak"` + `passed=false` => imsaka (sahurun bitimine) kalan süre
+ */
+export function getTimeUntilIftarThenImsak(
+  todayMaghribTime: string,
+  tomorrowFajrTime?: string,
+  opts?: {
+    /** Ezanın ortalama süresi (dakika). Varsayılan: 4 dk. */
+    ezanDurationMinutes?: number;
+    /** Test ve deterministik kullanım için "şu an" override. */
+    now?: Date;
+  }
+): {
+  hours: number;
+  minutes: number;
+  seconds: number;
+  passed: boolean;
+  mode: IftarCountdownMode;
+} {
+  const now = opts?.now ?? new Date();
+  const ezanDurationMinutes = opts?.ezanDurationMinutes ?? 4;
+
+  const parseTimeOnDate = (base: Date, time: string) => {
+    const [h, m] = time.split(":").map(Number);
+    const d = new Date(base);
+    d.setHours(h, m, 0, 0);
+    return d;
+  };
+
+  const todayIftar = parseTimeOnDate(now, todayMaghribTime);
+  const ezanEnd = new Date(todayIftar.getTime() + ezanDurationMinutes * 60 * 1000);
+
+  if (now.getTime() < todayIftar.getTime()) {
+    const diff = todayIftar.getTime() - now.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    return { hours, minutes, seconds, passed: false, mode: "iftar" };
+  }
+
+  if (now.getTime() <= ezanEnd.getTime()) {
+    return { hours: 0, minutes: 0, seconds: 0, passed: true, mode: "iftar" };
+  }
+
+  // Ezan bitti: bir sonraki imsak (Fajr) vaktine say.
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const target = tomorrowFajrTime
+    ? parseTimeOnDate(tomorrow, tomorrowFajrTime)
+    : new Date(todayIftar.getTime() + 12 * 60 * 60 * 1000); // fallback: kaba tahmin
+
+  const diff = target.getTime() - now.getTime();
+  if (diff <= 0) {
+    return { hours: 0, minutes: 0, seconds: 0, passed: false, mode: "imsak" };
+  }
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+  return { hours, minutes, seconds, passed: false, mode: "imsak" };
 }
 
 export function getCurrentPrayer(times: PrayerTimes): keyof PrayerTimes | null {
