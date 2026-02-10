@@ -132,7 +132,7 @@ const Index = () => {
               {locating ? "Aranıyor..." : "Konumu Bul"}
             </button>
 
-            <div className="relative">
+            <div className="relative z-50">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
                 className="glass-card gold-border px-4 py-2.5 flex items-center gap-2 text-sm text-cream min-w-[180px] justify-between cursor-pointer"
@@ -142,8 +142,8 @@ const Index = () => {
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 right-0 glass-card gold-border z-[60] max-h-64 overflow-hidden flex flex-col min-w-[280px]">
-                  <div className="p-2 border-b border-border">
+                <div className="absolute top-full mt-2 left-0 right-0 glass-card gold-border overflow-hidden flex flex-col min-w-[280px]">
+                  <div className="p-2 border-b border-border flex-shrink-0">
                     <div className="flex items-center gap-2 bg-input rounded-lg px-3 py-2">
                       <Search className="w-4 h-4 text-muted-foreground" />
                       <input
@@ -156,11 +156,12 @@ const Index = () => {
                       />
                     </div>
                   </div>
-                  <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
+                  <div className="overflow-y-scroll max-h-[300px]">
                     {filteredCities.map((city) => (
                       <button
                         key={city.name}
                         onClick={() => handleCitySelect(city)}
+                        type="button"
                         className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
                           selectedCity.name === city.name
                             ? "text-gold bg-night-light"
