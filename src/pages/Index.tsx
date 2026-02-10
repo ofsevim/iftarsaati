@@ -132,18 +132,19 @@ const Index = () => {
               {locating ? "Aranıyor..." : "Konumu Bul"}
             </button>
 
-            <div className="relative z-50">
+            <div className="relative">
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="glass-card gold-border px-4 py-2.5 flex items-center gap-2 text-sm text-cream min-w-[180px] justify-between cursor-pointer"
+                onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
+                className="glass-card gold-border px-4 py-2.5 flex items-center gap-2 text-sm text-cream min-w-[180px] justify-between"
               >
                 <span>{selectedCity.name}</span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 right-0 glass-card gold-border overflow-hidden flex flex-col min-w-[280px]">
-                  <div className="p-2 border-b border-border flex-shrink-0">
+                <div className="absolute top-full mt-2 left-0 w-full glass-card gold-border overflow-hidden flex flex-col min-w-[280px] shadow-2xl">
+                  <div className="p-2 border-b border-border">
                     <div className="flex items-center gap-2 bg-input rounded-lg px-3 py-2">
                       <Search className="w-4 h-4 text-muted-foreground" />
                       <input
@@ -152,16 +153,14 @@ const Index = () => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="bg-transparent text-sm text-cream outline-none w-full placeholder:text-muted-foreground"
-                        autoFocus
                       />
                     </div>
                   </div>
-                  <div className="overflow-y-scroll max-h-[300px]">
+                  <div className="overflow-y-auto max-h-[300px]">
                     {filteredCities.map((city) => (
                       <button
                         key={city.name}
-                        onClick={() => handleCitySelect(city)}
-                        type="button"
+                        onMouseDown={() => handleCitySelect(city)}
                         className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
                           selectedCity.name === city.name
                             ? "text-gold bg-night-light"
@@ -243,14 +242,6 @@ const Index = () => {
           </p>
         </div>
       </div>
-
-      {/* Click outside to close dropdown */}
-      {dropdownOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setDropdownOpen(false)}
-        />
-      )}
     </div>
   );
 };
