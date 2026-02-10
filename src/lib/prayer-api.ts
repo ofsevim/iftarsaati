@@ -1,5 +1,75 @@
 import { PrayerTimes, City } from "@/data/cities";
 
+export interface DailyPrayerTimes {
+  dateKey: string;   // YYYY-MM-DD
+  dateLabel: string; // e.g. "18 Şubat"
+  times: PrayerTimes;
+}
+
+const MONTH_NAMES = [
+  "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+  "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+];
+
+export async function fetchMonthlyPrayerTimes(
+  city: City,
+  start: Date,
+  end: Date
+): Promise<DailyPrayerTimes[]> {
+  const results: DailyPrayerTimes[] = [];
+
+  // Collect unique year-month pairs
+  const months = new Set<string>();
+  const d = new Date(start);
+  while (d <= end) {
+    months.add(`${d.getFullYear()}-${d.getMonth() + 1}`);
+    d.setDate(d.getDate() + 1);
+  }
+
+  for (const ym of months) {
+    const [year, month] = ym.split("-").map(Number);
+    try {
+      const res = await fetch(
+        `https://api.aladhan.com/v1/calendar/${year}/${month}?latitude=${city.lat}&longitude=${city.lng}&method=13`
+      );
+      if (!res.ok) continue;
+      const json = await res.json();
+
+      for (const dayData of json.data) {
+        const g = dayData.date.gregorian;
+        const dateObj = new Date(
+          Number(g.year),
+          Number(g.month.number) - 1,
+          Number(g.day)
+        );
+        if (dateObj < start || dateObj > end) continue;
+
+        const t = dayData.timings;
+        const dateKey = `${g.year}-${String(g.month.number).padStart(2, "0")}-${String(g.day).padStart(2, "0")}`;
+        const dateLabel = `${Number(g.day)} ${MONTH_NAMES[Number(g.month.number) - 1]}`;
+
+        results.push({
+          dateKey,
+          dateLabel,
+          times: {
+            Fajr: t.Fajr.split(" ")[0],
+            Sunrise: t.Sunrise.split(" ")[0],
+            Dhuhr: t.Dhuhr.split(" ")[0],
+            Asr: t.Asr.split(" ")[0],
+            Maghrib: t.Maghrib.split(" ")[0],
+            Isha: t.Isha.split(" ")[0],
+          },
+        });
+      }
+    } catch (e) {
+      console.error("Monthly fetch error:", e);
+    }
+  }
+
+  results.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  return results;
+}
+
 export async function fetchPrayerTimes(city: City): Promise<PrayerTimes | null> {
   try {
     const today = new Date();
