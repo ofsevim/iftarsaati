@@ -18,6 +18,10 @@ import {
 } from "@/lib/prayer-api";
 import { normalizeForSearch } from "@/lib/utils";
 
+const BAYRAM_DATE_KEY = "2026-03-20";
+
+type CountdownMode = "iftar" | "imsak" | "bayram";
+
 const Index = () => {
   const [selectedCity, setSelectedCity] = useState<City>(() => {
     const savedCity = localStorage.getItem("selectedCity");
@@ -29,7 +33,13 @@ const Index = () => {
   });
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [tomorrowFajr, setTomorrowFajr] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "iftar" as const });
+  const [countdown, setCountdown] = useState<{
+    hours: number;
+    minutes: number;
+    seconds: number;
+    passed: boolean;
+    mode: CountdownMode;
+  }>({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "iftar" });
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -50,12 +60,21 @@ const Index = () => {
   }, [dropdownOpen]);
   const [favoriteCities, setFavoriteCities] = useState<string[]>(() => {
     const saved = localStorage.getItem("favoriteCities");
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as string[];
+        const filtered = parsed.filter((name) => QUICK_CITIES.includes(name));
+        if (filtered.length) return filtered;
+      } catch (error) {
+        console.error("Failed to parse favorite cities:", error);
+      }
+    }
     return QUICK_CITIES;
   });
 
   const toggleFavorite = (cityName: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!QUICK_CITIES.includes(cityName)) return;
     const newFavorites = favoriteCities.includes(cityName)
       ? favoriteCities.filter((name) => name !== cityName)
       : [...favoriteCities, cityName];
@@ -86,11 +105,43 @@ const Index = () => {
 
   useEffect(() => {
     if (!prayerTimes) return;
+
+    const getDateKey = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
+    const getTimeUntilEndOfDay = (now: Date) => {
+      const endOfDay = new Date(now);
+      endOfDay.setHours(23, 59, 59, 999);
+      const diff = endOfDay.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        return { hours: 0, minutes: 0, seconds: 0, passed: true };
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      return { hours, minutes, seconds, passed: false };
+    };
+
+    const updateCountdown = () => {
+      const now = new Date();
+
+      // Bayram gününde özel sayaç: günün bitimine kadar geri sayım.
+      if (getDateKey(now) === BAYRAM_DATE_KEY) {
+        const bayramCountdown = getTimeUntilEndOfDay(now);
+        setCountdown({ ...bayramCountdown, mode: "bayram" });
+        return;
+      }
+
+      setCountdown(getTimeUntilIftarThenImsak(prayerTimes.Maghrib, tomorrowFajr ?? undefined, { todayFajrTime: prayerTimes.Fajr }));
+    };
+
     const interval = setInterval(() => {
       // Akşam ezanı bittikten sonra otomatik olarak imsaka (sahur bitimine) kalan süreyi göster.
-      setCountdown(getTimeUntilIftarThenImsak(prayerTimes.Maghrib, tomorrowFajr ?? undefined));
+      updateCountdown();
     }, 1000);
-    setCountdown(getTimeUntilIftarThenImsak(prayerTimes.Maghrib, tomorrowFajr ?? undefined));
+    updateCountdown();
     return () => clearInterval(interval);
   }, [prayerTimes, tomorrowFajr]);
 
@@ -128,33 +179,41 @@ const Index = () => {
       />
       <div className="fixed inset-0 bg-background/60" />
 
-      {/* Side Ornaments - Mobile only */}
-      <div
-        aria-hidden="true"
-        className="fixed inset-y-0 left-0 w-8 z-0 opacity-40 pointer-events-none md:hidden"
-      >
-        <div
-          className="h-full w-full bg-repeat-y bg-contain"
-          style={{
-            backgroundImage: `url(${bgPattern})`,
-            backgroundPosition: 'left center'
-          }}
-        />
-        <div className="absolute inset-y-0 right-0 w-[1px] bg-gold/20" />
-      </div>
-      <div
-        aria-hidden="true"
-        className="fixed inset-y-0 right-0 w-8 z-0 opacity-40 pointer-events-none md:hidden"
-      >
-        <div
-          className="h-full w-full bg-repeat-y bg-contain"
-          style={{
-            backgroundImage: `url(${bgPattern})`,
-            backgroundPosition: 'right center'
-          }}
-        />
-        <div className="absolute inset-y-0 left-0 w-[1px] bg-gold/20" />
-      </div>
+      {/* Side Ornaments - Mobile only — İslami geometrik altın motif */}
+      <svg aria-hidden="true" className="fixed inset-y-0 left-0 w-10 h-full z-0 pointer-events-none md:hidden" preserveAspectRatio="none">
+        <defs>
+          <pattern id="sideMotifL" x="0" y="0" width="40" height="80" patternUnits="userSpaceOnUse">
+            {/* Altın çizgi çerçeve */}
+            <line x1="38" y1="0" x2="38" y2="80" stroke="hsl(36,55%,55%)" strokeWidth="0.5" opacity="0.25" />
+            {/* Tekrar eden sekizgen geometrik desen */}
+            <path d="M20,5 L30,15 L30,25 L20,35 L10,25 L10,15 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
+            <path d="M20,45 L30,55 L30,65 L20,75 L10,65 L10,55 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
+            {/* Merkez yıldız */}
+            <circle cx="20" cy="20" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
+            <circle cx="20" cy="60" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
+            {/* Bağlantı çizgileri */}
+            <line x1="20" y1="35" x2="20" y2="45" stroke="hsl(36,55%,55%)" strokeWidth="0.4" opacity="0.15" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#sideMotifL)" />
+      </svg>
+      <svg aria-hidden="true" className="fixed inset-y-0 right-0 w-10 h-full z-0 pointer-events-none md:hidden" preserveAspectRatio="none">
+        <defs>
+          <pattern id="sideMotifR" x="0" y="0" width="40" height="80" patternUnits="userSpaceOnUse">
+            {/* Altın çizgi çerçeve */}
+            <line x1="2" y1="0" x2="2" y2="80" stroke="hsl(36,55%,55%)" strokeWidth="0.5" opacity="0.25" />
+            {/* Tekrar eden sekizgen geometrik desen */}
+            <path d="M20,5 L30,15 L30,25 L20,35 L10,25 L10,15 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
+            <path d="M20,45 L30,55 L30,65 L20,75 L10,65 L10,55 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
+            {/* Merkez yıldız */}
+            <circle cx="20" cy="20" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
+            <circle cx="20" cy="60" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
+            {/* Bağlantı çizgileri */}
+            <line x1="20" y1="35" x2="20" y2="45" stroke="hsl(36,55%,55%)" strokeWidth="0.4" opacity="0.15" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#sideMotifR)" />
+      </svg>
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col items-center px-4 py-8 md:py-12">
@@ -262,8 +321,10 @@ const Index = () => {
         {/* Countdown */}
         <div className="mb-10 text-center">
           <h2 className="font-display text-xl md:text-2xl text-gold-light mb-6">
-            {countdown.passed
-              ? "İftar vakti"
+            {countdown.mode === "bayram"
+              ? (countdown.passed ? "Bayram Günü" : "Bayramın Bitimine Kalan Süre")
+              : countdown.passed
+                ? "İftar vakti"
               : countdown.mode === "imsak"
                 ? "Sahurun Bitimine Kalan Süre"
                 : "İftara Kalan Süre"}
@@ -275,7 +336,7 @@ const Index = () => {
             <div className="text-cream-muted">Vakit verileri şu an alınamadı.</div>
           ) : countdown.passed ? (
             <div className="text-2xl md:text-3xl font-display text-gold">
-              Hayırlı İftarlar! 🌙
+              {countdown.mode === "bayram" ? "Bayramınız Mübarek Olsun!" : "Hayırlı İftarlar! 🌙"}
             </div>
           ) : (
             <div className="flex items-center gap-3 md:gap-4 justify-center">
@@ -309,7 +370,17 @@ const Index = () => {
                   key={key}
                   className="prayer-card"
                 >
-                  <div className="text-2xl mb-1">{PRAYER_ICONS[key]}</div>
+                  <div className="mb-1 flex items-center justify-center">
+                    {(() => {
+                      const Icon = PRAYER_ICONS[key];
+                      return (
+                        <Icon
+                          aria-hidden="true"
+                          className="h-6 w-6 text-gold-light"
+                        />
+                      );
+                    })()}
+                  </div>
                   <div className="text-xs text-cream-muted mb-1">{PRAYER_LABELS[key]}</div>
                   <div className="text-lg font-semibold text-cream font-sans">
                     {prayerTimes[key]}
@@ -323,13 +394,6 @@ const Index = () => {
 
         {/* Imsakiye */}
         <Imsakiye city={selectedCity} />
-
-        {/* Footer */}
-        <div className="mt-auto pt-8 text-center">
-          <p className="text-xs text-muted-foreground">
-            Veriler Aladhan API üzerinden alınmaktadır • Diyanet (Türkiye) metodu
-          </p>
-        </div>
       </div>
     </div>
   );

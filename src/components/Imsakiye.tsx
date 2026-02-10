@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Candy } from "lucide-react";
 import { City, PRAYER_LABELS, type PrayerTimes } from "@/data/cities";
 import { fetchMonthlyPrayerTimes, type DailyPrayerTimes } from "@/lib/prayer-api";
 
@@ -49,67 +50,73 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
         </div>
       ) : (
         <div className="glass-card gold-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
-                  <th className="px-3 py-3 text-left text-gold-light font-display text-xs md:text-sm">Gün</th>
-                  <th className="px-3 py-3 text-left text-gold-light font-display text-xs md:text-sm">Tarih</th>
-                  {prayerKeys.map((key) => (
-                    <th key={key} className="px-3 py-3 text-center text-gold-light font-display text-xs md:text-sm">
-                      {PRAYER_LABELS[key]}
-                    </th>
-                  ))}
+          {/* Tablo — mobilde küçük font+padding ile tüm vakitler sığıyor */}
+          <table className="w-full text-[10px] sm:text-xs md:text-sm">
+            <thead>
+              <tr className="border-b" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
+                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display">Gün</th>
+                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display">Tarih</th>
+                {prayerKeys.map((key) => (
+                  <th key={key} className="px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-center text-gold-light font-display">
+                    {PRAYER_LABELS[key]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((day, i) => {
+                const isToday = day.dateKey === todayStr;
+                const isKadirGecesi = i === KADIR_GECESI_INDEX;
+                const isBayram = i === BAYRAM_INDEX;
 
-                </tr>
-              </thead>
-              <tbody>
-                {days.map((day, i) => {
-                  const isToday = day.dateKey === todayStr;
-                  const isKadirGecesi = i === KADIR_GECESI_INDEX;
-                  const isBayram = i === BAYRAM_INDEX;
+                const dayLabel = String(i + 1);
+                const dateLabel = day.dateLabel;
 
-                  const dayLabel = isBayram ? "🌙" : String(i + 1);
-                  const dateLabel = day.dateLabel;
+                const rowColor = isKadirGecesi
+                  ? "bg-[hsla(280,60%,50%,0.12)]"
+                  : isBayram
+                    ? "bg-[hsla(120,50%,40%,0.1)]"
+                    : isToday
+                      ? "bg-[hsla(36,55%,55%,0.12)]"
+                      : i % 2 === 0
+                        ? "bg-transparent"
+                        : "bg-[hsla(220,30%,15%,0.3)]";
 
-                  return (
-                    <tr
-                      key={day.dateKey}
-                      className={`border-b transition-colors ${isKadirGecesi
-                        ? "bg-[hsla(280,60%,50%,0.12)]"
-                        : isBayram
-                          ? "bg-[hsla(120,50%,40%,0.1)]"
-                          : isToday
-                            ? "bg-[hsla(36,55%,55%,0.12)]"
-                            : i % 2 === 0
-                              ? "bg-transparent"
-                              : "bg-[hsla(220,30%,15%,0.3)]"
-                        }`}
-                      style={{ borderColor: "hsl(var(--gold) / 0.1)" }}
-                    >
-                      <td className={`px-3 py-2.5 font-semibold ${isToday ? "text-gold" : (isKadirGecesi || isBayram) ? "text-gold-light" : "text-cream-muted"}`}>
-                        {dayLabel}
+                const labelColor = isToday ? "text-gold" : (isKadirGecesi || isBayram) ? "text-gold-light" : "text-cream-muted";
+
+                const cellColor = () =>
+                  isBayram ? "text-gold-light font-semibold" :
+                    isToday ? "text-gold font-semibold" : "text-cream";
+
+                return (
+                  <tr
+                    key={day.dateKey}
+                    className={`border-b transition-colors ${rowColor}`}
+                    style={{ borderColor: "hsl(var(--gold) / 0.1)" }}
+                  >
+                    <td className={`px-1 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 font-semibold ${labelColor}`}>
+                      {isBayram ? (
+                        <span className="inline-flex items-center justify-center" aria-label="Bayram">
+                          <Candy className="h-3 w-3 md:h-4 md:w-4 text-blue-400" aria-hidden="true" />
+                        </span>
+                      ) : dayLabel}
+                    </td>
+                    <td className={`px-1 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 whitespace-nowrap ${labelColor}`}>
+                      {dateLabel}
+                    </td>
+                    {prayerKeys.map((key) => (
+                      <td
+                        key={key}
+                        className={`px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 text-center font-mono ${cellColor()}`}
+                      >
+                        {isBayram && key === "Sunrise" ? `🕌 ${day.times[key]}` : day.times[key]}
                       </td>
-                      <td className={`px-3 py-2.5 whitespace-nowrap ${isToday ? "text-gold" : (isKadirGecesi || isBayram) ? "text-gold-light" : "text-cream-muted"}`}>
-                        {dateLabel}
-                      </td>
-                      {prayerKeys.map((key) => (
-                        <td
-                          key={key}
-                          className={`px-3 py-2.5 text-center font-mono ${isBayram && key === "Sunrise" ? "text-gold-light font-semibold" :
-                            isBayram ? "text-gold-light font-semibold" :
-                              isToday ? "text-gold font-semibold" : "text-cream"
-                            }`}
-                        >
-                          {isBayram && key === "Sunrise" ? `🕌 ${day.times[key]}` : day.times[key]}
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
