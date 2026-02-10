@@ -14,18 +14,12 @@ const MONTH_NAMES = [
 const PRAYER_API_TIMEOUT = 10000; // 10 seconds
 
 async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
-  const headers = {
-    'Accept': 'application/json'
-  };
-
   for (let i = 0; i < retries; i++) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), PRAYER_API_TIMEOUT);
 
     try {
       const response = await fetch(url, {
-        headers,
-        cache: 'no-store',
         signal: controller.signal
       });
       clearTimeout(timeoutId);
