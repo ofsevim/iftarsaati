@@ -11,6 +11,37 @@ const MONTH_NAMES = [
   "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
 ];
 
+const PRAYER_API_TIMEOUT = 10000; // 10 seconds
+
+async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
+  const headers = {
+    'Accept': 'application/json',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache'
+  };
+
+  for (let i = 0; i < retries; i++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), PRAYER_API_TIMEOUT);
+
+    try {
+      const response = await fetch(url, {
+        headers,
+        cache: 'no-store',
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (response.ok) return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (i === retries - 1) throw error;
+      // Exponential backoff
+      await new Promise(res => setTimeout(res, 1000 * Math.pow(2, i)));
+    }
+  }
+  throw new Error("Failed to fetch after retries");
+}
+
 export async function fetchMonthlyPrayerTimes(
   city: City,
   start: Date,
@@ -29,10 +60,9 @@ export async function fetchMonthlyPrayerTimes(
   for (const ym of months) {
     const [year, month] = ym.split("-").map(Number);
     try {
-      const res = await fetch(
+      const res = await fetchWithRetry(
         `https://api.aladhan.com/v1/calendar/${year}/${month}?latitude=${city.lat}&longitude=${city.lng}&method=13`
       );
-      if (!res.ok) continue;
       const json = await res.json();
 
       for (const dayData of json.data) {
@@ -78,11 +108,9 @@ export async function fetchPrayerTimes(city: City): Promise<PrayerTimes | null> 
     const yyyy = today.getFullYear();
     const dateStr = `${dd}-${mm}-${yyyy}`;
 
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${city.lat}&longitude=${city.lng}&method=13`
     );
-
-    if (!response.ok) throw new Error("API error");
 
     const data = await response.json();
     const timings = data.data.timings;
