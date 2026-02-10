@@ -15,9 +15,7 @@ const PRAYER_API_TIMEOUT = 10000; // 10 seconds
 
 async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
   const headers = {
-    'Accept': 'application/json',
-    'Cache-Control': 'no-cache',
-    'Pragma': 'no-cache'
+    'Accept': 'application/json'
   };
 
   for (let i = 0; i < retries; i++) {
@@ -115,13 +113,16 @@ export async function fetchPrayerTimes(city: City): Promise<PrayerTimes | null> 
     const data = await response.json();
     const timings = data.data.timings;
 
+    // Helper to normalize time strings (handle "18:13 (TRT)" format)
+    const normalizeTime = (t: string) => t.split(" ")[0];
+
     return {
-      Fajr: timings.Fajr,
-      Sunrise: timings.Sunrise,
-      Dhuhr: timings.Dhuhr,
-      Asr: timings.Asr,
-      Maghrib: timings.Maghrib,
-      Isha: timings.Isha,
+      Fajr: normalizeTime(timings.Fajr),
+      Sunrise: normalizeTime(timings.Sunrise),
+      Dhuhr: normalizeTime(timings.Dhuhr),
+      Asr: normalizeTime(timings.Asr),
+      Maghrib: normalizeTime(timings.Maghrib),
+      Isha: normalizeTime(timings.Isha),
     };
   } catch (error) {
     console.error("Failed to fetch prayer times:", error);

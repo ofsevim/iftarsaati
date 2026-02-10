@@ -248,7 +248,9 @@ const Index = () => {
           </h2>
 
           {loading ? (
-            <div className="text-cream-muted animate-pulse">Yükleniyor...</div>
+            <div className="text-cream-muted animate-pulse">Vakitler yükleniyor...</div>
+          ) : !prayerTimes ? (
+            <div className="text-cream-muted">Vakit verileri şu an alınamadı.</div>
           ) : countdown.passed ? (
             <div className="text-2xl md:text-3xl font-display text-gold">
               Hayırlı İftarlar! 🌙
@@ -256,17 +258,17 @@ const Index = () => {
           ) : (
             <div className="flex items-center gap-3 md:gap-4 justify-center">
               <div className="text-center">
-                <div className="countdown-digit">{pad(countdown.hours)}</div>
+                <div className="countdown-digit">{pad(countdown.hours || 0)}</div>
                 <span className="text-xs text-cream-muted mt-2 block">Saat</span>
               </div>
               <span className="text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
               <div className="text-center">
-                <div className="countdown-digit">{pad(countdown.minutes)}</div>
+                <div className="countdown-digit">{pad(countdown.minutes || 0)}</div>
                 <span className="text-xs text-cream-muted mt-2 block">Dakika</span>
               </div>
               <span className="text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
               <div className="text-center">
-                <div className="countdown-digit">{pad(countdown.seconds)}</div>
+                <div className="countdown-digit">{pad(countdown.seconds || 0)}</div>
                 <span className="text-xs text-cream-muted mt-2 block">Saniye</span>
               </div>
             </div>
@@ -275,7 +277,7 @@ const Index = () => {
 
         {/* Prayer Times */}
         {prayerTimes && (
-          <div className="w-full max-w-3xl">
+          <div className="w-full max-w-3xl mb-10">
             <h3 className="font-display text-lg text-gold-light text-center mb-4">
               {selectedCity.name} — Namaz Vakitleri
             </h3>
@@ -295,6 +297,7 @@ const Index = () => {
             </div>
           </div>
         )}
+
 
         {/* Imsakiye */}
         <Imsakiye city={selectedCity} />
