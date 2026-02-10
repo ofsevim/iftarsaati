@@ -401,7 +401,16 @@ const Index = () => {
         {/* Footer */}
         <footer className="mt-1.5 mb-2 text-center">
           <p className="text-xs text-cream-muted/50">
-            Bu bir <span className="text-gold/60 font-medium">Osoft</span> ürünüdür
+            Bu bir{" "}
+            <a
+              href="https://omersevim.com.tr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gold/60 font-medium hover:text-gold transition-colors"
+            >
+              Osoft
+            </a>{" "}
+            ürünüdür
           </p>
         </footer>
       </div>
