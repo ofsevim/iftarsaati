@@ -126,7 +126,7 @@ const Index = () => {
               className="glass-card gold-border px-4 py-2.5 flex items-center gap-2 text-sm text-cream-muted hover:text-gold transition-colors cursor-pointer"
             >
               <MapPin className="w-4 h-4" />
-              {locating ? "Aranıyor..." : "Konumumu Bul"}
+              {locating ? "Aranıyor..." : "Konumu Bul"}
             </button>
 
             <div className="relative">
