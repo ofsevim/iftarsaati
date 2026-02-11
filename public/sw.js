@@ -13,21 +13,16 @@ const STATIC_ASSETS = [
   '/robots.txt'
 ];
 
-// Samsung tarayıcısı için basitleştirilmiş install
+// Basitleştirilmiş install - tüm tarayıcılar için
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => {
-        // Tek tek ekleyerek hataları yakala
-        return Promise.all(
-          STATIC_ASSETS.map(asset => {
-            return cache.add(asset).catch(err => {
-              console.log(`Failed to cache ${asset}:`, err);
-            });
-          })
-        );
-      })
+      .then((cache) => cache.addAll(STATIC_ASSETS))
       .then(() => self.skipWaiting())
+      .catch((err) => {
+        console.log('Cache ekleme hatası:', err);
+        self.skipWaiting();
+      })
   );
 });
 

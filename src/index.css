@@ -44,9 +44,9 @@
     --cream: 40 30% 92%;
     --cream-muted: 40 20% 80%;
 
-    --glass-bg: 220 30% 15% / 0.5;
-    --glass-border: 36 40% 50% / 0.25;
-    --glass-shadow: 220 40% 4% / 0.4;
+    --glass-bg: 220 30% 15%;
+    --glass-border: 36 40% 50%;
+    --glass-shadow: 220 40% 4%;
 
     --sidebar-background: 220 35% 10%;
     --sidebar-foreground: 40 30% 92%;
@@ -82,6 +82,20 @@
 
 @layer components {
   .glass-card {
+    @apply rounded-2xl border;
+    background: rgba(15, 20, 25, 0.6);
+    border-color: rgba(36, 55, 55, 0.25);
+    box-shadow: 0 8px 32px rgba(20, 20, 20, 0.4);
+  }
+
+  .glass-card-backdrop {
+    @apply rounded-2xl border backdrop-blur-xl;
+    background: hsla(var(--glass-bg));
+    border-color: hsla(var(--glass-border));
+    box-shadow: 0 8px 32px hsla(var(--glass-shadow));
+  }
+
+  .glass-card-backdrop {
     @apply rounded-2xl border backdrop-blur-xl;
     background: hsla(var(--glass-bg));
     border-color: hsla(var(--glass-border));
@@ -117,7 +131,7 @@
   }
 
   .countdown-digit {
-    @apply glass-card gold-border gold-glow px-4 py-3 md:px-6 md:py-4 text-4xl md:text-6xl font-bold tabular-nums;
+    @apply glass-card-backdrop gold-border gold-glow px-4 py-3 md:px-6 md:py-4 text-4xl md:text-6xl font-bold tabular-nums;
     color: hsl(var(--gold-light));
     font-family: 'Inter', sans-serif;
     font-weight: 700;
@@ -126,7 +140,7 @@
   }
 
   .prayer-card {
-    @apply glass-card gold-border p-4 text-center transition-all duration-300;
+    @apply glass-card-backdrop gold-border p-4 text-center transition-all duration-300;
   }
 
   .prayer-card:hover {
@@ -148,13 +162,13 @@
   .quick-btn:hover {
     color: hsl(var(--gold));
     border-color: hsl(var(--gold) / 0.5);
-    background: hsla(36, 55%, 55%, 0.08);
+    background: rgba(36, 55, 55, 0.08);
   }
 
   .quick-btn.selected {
     color: hsl(var(--gold));
     border-color: hsl(var(--gold) / 0.6);
-    background: hsla(36, 55%, 55%, 0.12);
+    background: rgba(36, 55, 55, 0.12);
     @apply gold-glow;
   }
 }
