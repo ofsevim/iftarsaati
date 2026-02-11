@@ -6,6 +6,22 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
+function safeStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Safari private mode vb. durumlarda sessizce geç
+  }
+}
+
 const InstallPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -16,7 +32,7 @@ const InstallPrompt = () => {
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       
       // Check if user has dismissed the prompt before
-      const dismissed = localStorage.getItem("pwa-install-dismissed");
+      const dismissed = safeStorageGet("pwa-install-dismissed");
       if (!dismissed) {
         setShowPrompt(true);
       }
@@ -47,7 +63,7 @@ const InstallPrompt = () => {
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    localStorage.setItem("pwa-install-dismissed", "true");
+    safeStorageSet("pwa-install-dismissed", "true");
   };
 
   if (!showPrompt) return null;

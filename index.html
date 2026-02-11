@@ -45,28 +45,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      // Service Worker kaydı — eski SW'yi güncelleyip yeni versiyonu etkinleştirir
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').then(function(reg) {
-          // Yeni SW bulunursa hemen güncelle
-          reg.addEventListener('updatefound', function() {
-            var newWorker = reg.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', function() {
-                if (newWorker.state === 'activated') {
-                  // Yeni SW aktif — eski cache temizlendi
-                  console.log('[SW] Yeni versiyon aktif.');
-                }
-              });
-            }
-          });
-          // Mevcut SW'ye güncelleme kontrolü yap
-          reg.update().catch(function() {});
-        }).catch(function(err) {
-          console.log('[SW] Kayıt hatası:', err);
-        });
-      }
-    </script>
   </body>
 </html>

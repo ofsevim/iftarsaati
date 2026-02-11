@@ -12,6 +12,14 @@ const MONTH_NAMES = [
 ];
 
 const PRAYER_API_TIMEOUT = 15000; // 15 saniye — yavaş mobil bağlantılar için
+const FALLBACK_PRAYER_TIMES: PrayerTimes = {
+  Fajr: "05:40",
+  Sunrise: "07:05",
+  Dhuhr: "13:15",
+  Asr: "16:35",
+  Maghrib: "19:10",
+  Isha: "20:30",
+};
 
 /**
  * localStorage'a namaz vakitlerini cache'ler (API erişilmezse fallback olarak kullanılır).
@@ -293,7 +301,8 @@ export async function fetchPrayerTimesForDate(
       console.info("[Prayer API] API erişilemedi — cache'den yükleniyor (daily).");
       return cached;
     }
-    return null;
+    // Son çare: uygulama tamamen boş kalmasın diye yerleşik fallback
+    return FALLBACK_PRAYER_TIMES;
   }
 }
 
