@@ -22,9 +22,25 @@ const BAYRAM_DATE_KEY = "2026-03-20";
 
 type CountdownMode = "iftar" | "imsak" | "bayram";
 
+function safeStorageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Safari private mode vb. durumlarda sessizce geç
+  }
+}
+
 const Index = () => {
   const [selectedCity, setSelectedCity] = useState<City>(() => {
-    const savedCity = localStorage.getItem("selectedCity");
+    const savedCity = safeStorageGet("selectedCity");
     if (savedCity) {
       const city = TURKEY_CITIES.find((c) => c.name === savedCity);
       if (city) return city;
@@ -59,7 +75,7 @@ const Index = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownOpen]);
   const [favoriteCities, setFavoriteCities] = useState<string[]>(() => {
-    const saved = localStorage.getItem("favoriteCities");
+    const saved = safeStorageGet("favoriteCities");
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as string[];
@@ -82,7 +98,7 @@ const Index = () => {
       ? favoriteCities.filter((name) => name !== cityName)
       : [...favoriteCities, cityName];
     setFavoriteCities(newFavorites);
-    localStorage.setItem("favoriteCities", JSON.stringify(newFavorites));
+    safeStorageSet("favoriteCities", JSON.stringify(newFavorites));
   };
 
   const loadPrayerTimes = useCallback(async (city: City) => {
@@ -106,7 +122,7 @@ const Index = () => {
 
   useEffect(() => {
     loadPrayerTimes(selectedCity);
-    localStorage.setItem("selectedCity", selectedCity.name);
+    safeStorageSet("selectedCity", selectedCity.name);
   }, [selectedCity, loadPrayerTimes]);
 
   useEffect(() => {
