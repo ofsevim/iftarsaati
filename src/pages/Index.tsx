@@ -96,7 +96,10 @@ const Index = () => {
       fetchPrayerTimesForDate(city, tomorrow),
     ]);
 
-    setPrayerTimes(todayTimes);
+    // Yeni veri alınamazsa mevcut veriyi silmeyelim; kullanıcıya boş ekran göstermeyelim.
+    if (todayTimes) {
+      setPrayerTimes(todayTimes);
+    }
     setTomorrowFajr(tomorrowTimes?.Fajr ?? null);
     setLoading(false);
   }, []);

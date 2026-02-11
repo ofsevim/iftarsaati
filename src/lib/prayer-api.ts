@@ -34,6 +34,48 @@ function setCachedData<T>(key: string, data: T): void {
 }
 
 /**
+ * Aladhan timings nesnesini uygulama formatına çevirir.
+ */
+function normalizePrayerTimesFromTimings(timings: any): PrayerTimes | null {
+  if (!timings) return null;
+  const normalizeTime = (t: unknown) =>
+    typeof t === "string" ? t.split(" ")[0] : null;
+
+  const Fajr = normalizeTime(timings.Fajr);
+  const Sunrise = normalizeTime(timings.Sunrise);
+  const Dhuhr = normalizeTime(timings.Dhuhr);
+  const Asr = normalizeTime(timings.Asr);
+  const Maghrib = normalizeTime(timings.Maghrib);
+  const Isha = normalizeTime(timings.Isha);
+
+  if (!Fajr || !Sunrise || !Dhuhr || !Asr || !Maghrib || !Isha) return null;
+  return { Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha };
+}
+
+/**
+ * Timings endpoint'i başarısız olursa aynı gün için calendar endpoint'inden veri çekmeyi dener.
+ */
+async function fetchPrayerTimesViaCalendar(city: City, date: Date): Promise<PrayerTimes | null> {
+  const year = date.getFullYear();
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+
+  const response = await fetchWithRetry(
+    `https://api.aladhan.com/v1/calendar/${year}/${month}?latitude=${city.lat}&longitude=${city.lng}&method=13`
+  );
+
+  const json = await response.json();
+  if (!json?.data || !Array.isArray(json.data)) return null;
+
+  const row = json.data.find((item: any) => {
+    const g = item?.date?.gregorian;
+    return Number(g?.day) === day;
+  });
+
+  return normalizePrayerTimesFromTimings(row?.timings);
+}
+
+/**
  * Belirtilen URL'ye retry + timeout + CORS desteği ile istek atar.
  * - mode:"cors" + credentials:"omit" → mobil tarayıcılarda CORS sorunlarını önler.
  * - cache:"no-store" → bozuk disk cache'inden yanıt gelmesini engeller.
@@ -205,25 +247,46 @@ export async function fetchPrayerTimesForDate(
 
     if (!data?.data?.timings) {
       console.error("[Prayer API] Beklenmeyen yanıt yapısı (daily)");
+      try {
+        const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
+        if (fromCalendar) {
+          setCachedData(cacheKey, fromCalendar);
+          return fromCalendar;
+        }
+      } catch {
+        // Calendar fallback de başarısız olabilir; cache fallback'e düş
+      }
       return getCachedData<PrayerTimes>(cacheKey);
     }
 
-    const timings = data.data.timings;
-    const normalizeTime = (t: string) => t.split(" ")[0];
-
-    const result: PrayerTimes = {
-      Fajr: normalizeTime(timings.Fajr),
-      Sunrise: normalizeTime(timings.Sunrise),
-      Dhuhr: normalizeTime(timings.Dhuhr),
-      Asr: normalizeTime(timings.Asr),
-      Maghrib: normalizeTime(timings.Maghrib),
-      Isha: normalizeTime(timings.Isha),
-    };
+    const result = normalizePrayerTimesFromTimings(data.data.timings);
+    if (!result) {
+      try {
+        const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
+        if (fromCalendar) {
+          setCachedData(cacheKey, fromCalendar);
+          return fromCalendar;
+        }
+      } catch {
+        // ignore
+      }
+      return getCachedData<PrayerTimes>(cacheKey);
+    }
 
     setCachedData(cacheKey, result);
     return result;
   } catch (error) {
     console.error("[Prayer API] Daily fetch hatası:", error);
+    // Timings endpoint tamamen düştüyse calendar fallback dene
+    try {
+      const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
+      if (fromCalendar) {
+        setCachedData(cacheKey, fromCalendar);
+        return fromCalendar;
+      }
+    } catch {
+      // ignore
+    }
     // API erişilemezse eski cache'den dön
     const cached = getCachedData<PrayerTimes>(cacheKey);
     if (cached) {
