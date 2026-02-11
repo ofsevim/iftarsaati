@@ -17,6 +17,11 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    # Samsung tarayıcısı için Service Worker uyumluluğu
+    Service-Worker-Allowed = "/"
+    # Samsung için PWA optimizasyonu
+    Cross-Origin-Embedder-Policy = "unsafe-none"
+    Cross-Origin-Opener-Policy = "same-origin"
 
 [[headers]]
   for = "/manifest.json"
