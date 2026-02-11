@@ -14,6 +14,38 @@ const MONTH_NAMES = [
 const PRAYER_API_TIMEOUT = 15000; // 15 saniye — yavaş mobil bağlantılar için
 
 /**
+ * Hata nesnesinden okunabilir mesaj çıkarır.
+ * Bazı mobil tarayıcılarda Error.message boş olabiliyor.
+ */
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message || err.name || String(err);
+  }
+  if (typeof err === "string") return err;
+  try { return JSON.stringify(err); } catch { return String(err); }
+}
+
+/**
+ * localStorage'a namaz vakitlerini cache'ler (API erişilmezse fallback).
+ */
+function getCachedData<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    // 24 saat geçmişse cache'i geçersiz say
+    if (Date.now() - ts > 24 * 60 * 60 * 1000) return null;
+    return data as T;
+  } catch { return null; }
+}
+
+function setCachedData<T>(key: string, data: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
+  } catch { /* quota aşılmış olabilir, sessizce geç */ }
+}
+
+/**
  * Belirtilen URL'ye retry + timeout + CORS desteği ile istek atar.
  * - Her deneme arasında exponential backoff uygular.
  * - Başarısız yanıtların body'sini tüketir (bağlantı sızıntısını önler).
@@ -50,6 +82,7 @@ async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
       lastError = error;
+      console.warn(`[Prayer API] Deneme ${i + 1}/${retries} başarısız:`, getErrorMessage(error));
     }
 
     // Son deneme değilse bekle (exponential backoff)
@@ -58,7 +91,7 @@ async function fetchWithRetry(url: string, retries = 3): Promise<Response> {
     }
   }
 
-  throw lastError ?? new Error("Failed to fetch after retries");
+  throw new Error(`API isteği başarısız (${retries} deneme): ${getErrorMessage(lastError)}`);
 }
 
 export async function fetchMonthlyPrayerTimes(
@@ -76,6 +109,8 @@ export async function fetchMonthlyPrayerTimes(
     d.setDate(d.getDate() + 1);
   }
 
+  const cacheKey = `monthly_${city.name}_${start.toISOString().slice(0, 10)}_${end.toISOString().slice(0, 10)}`;
+
   for (const ym of months) {
     const [year, month] = ym.split("-").map(Number);
     try {
@@ -87,12 +122,12 @@ export async function fetchMonthlyPrayerTimes(
       try {
         json = await res.json();
       } catch {
-        console.error("Monthly API: Geçersiz JSON yanıtı");
+        console.error("[Prayer API] Monthly: Geçersiz JSON yanıtı");
         continue;
       }
 
       if (!json?.data || !Array.isArray(json.data)) {
-        console.error("Monthly API: Beklenmeyen yanıt yapısı", json);
+        console.error("[Prayer API] Monthly: Beklenmeyen yanıt yapısı");
         continue;
       }
 
@@ -123,11 +158,24 @@ export async function fetchMonthlyPrayerTimes(
         });
       }
     } catch (e) {
-      console.error("Monthly fetch error:", e);
+      console.error("[Prayer API] Monthly fetch hatası:", getErrorMessage(e));
     }
   }
 
   results.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+
+  // Sonuç varsa localStorage'a cache'le
+  if (results.length > 0) {
+    setCachedData(cacheKey, results);
+  } else {
+    // API erişilmezse localStorage fallback'ine bak
+    const cached = getCachedData<DailyPrayerTimes[]>(cacheKey);
+    if (cached && cached.length > 0) {
+      console.info("[Prayer API] API erişilemedi, cache'den yükleniyor.");
+      return cached;
+    }
+  }
+
   return results;
 }
 
@@ -153,8 +201,10 @@ export async function fetchPrayerTimesForDate(
   city: City,
   date: Date
 ): Promise<PrayerTimes | null> {
+  const dateStr = formatDateForPrayerApi(date);
+  const cacheKey = `daily_${city.name}_${dateStr}`;
+
   try {
-    const dateStr = formatDateForPrayerApi(date);
     const response = await fetchWithRetry(
       `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${city.lat}&longitude=${city.lng}&method=13`
     );
@@ -163,14 +213,14 @@ export async function fetchPrayerTimesForDate(
     try {
       data = await response.json();
     } catch {
-      console.error("Prayer API: Geçersiz JSON yanıtı");
-      return null;
+      console.error("[Prayer API] Daily: Geçersiz JSON yanıtı");
+      return getCachedData<PrayerTimes>(cacheKey);
     }
 
     // Yanıt yapısını doğrula
     if (!data?.data?.timings) {
-      console.error("Prayer API: Beklenmeyen yanıt yapısı", data);
-      return null;
+      console.error("[Prayer API] Daily: Beklenmeyen yanıt yapısı");
+      return getCachedData<PrayerTimes>(cacheKey);
     }
 
     const timings = data.data.timings;
@@ -178,7 +228,7 @@ export async function fetchPrayerTimesForDate(
     // Helper: "18:13 (TRT)" → "18:13"
     const normalizeTime = (t: string) => t.split(" ")[0];
 
-    return {
+    const result: PrayerTimes = {
       Fajr: normalizeTime(timings.Fajr),
       Sunrise: normalizeTime(timings.Sunrise),
       Dhuhr: normalizeTime(timings.Dhuhr),
@@ -186,8 +236,18 @@ export async function fetchPrayerTimesForDate(
       Maghrib: normalizeTime(timings.Maghrib),
       Isha: normalizeTime(timings.Isha),
     };
+
+    // Başarılı yanıtı cache'le
+    setCachedData(cacheKey, result);
+    return result;
   } catch (error) {
-    console.error("Failed to fetch prayer times:", error);
+    console.error("[Prayer API] Daily fetch hatası:", getErrorMessage(error));
+    // API erişilmezse localStorage fallback
+    const cached = getCachedData<PrayerTimes>(cacheKey);
+    if (cached) {
+      console.info("[Prayer API] API erişilemedi, cache'den yükleniyor.");
+      return cached;
+    }
     return null;
   }
 }

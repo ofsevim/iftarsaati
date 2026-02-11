@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iftar-vakti-v3';
+const CACHE_NAME = 'iftar-vakti-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -13,7 +13,7 @@ const STATIC_ASSETS = [
   '/robots.txt'
 ];
 
-// Basitleştirilmiş install - tüm tarayıcılar için
+// Install: statik dosyaları cache'le
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -39,9 +39,22 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Basitleştirilmiş fetch stratejisi - Samsung uyumluluğu için
+/**
+ * Fetch stratejisi:
+ * - Cross-origin API istekleri (aladhan.com vb.) → SW müdahale ETMEZ, doğrudan ağa gider.
+ * - Navigation istekleri → network-first, offline ise cache'den index.html.
+ * - Same-origin statik dosyalar → cache-first.
+ */
 self.addEventListener('fetch', (event) => {
-  // Navigation istekleri için özel işlem
+  const url = new URL(event.request.url);
+
+  // ✅ Cross-origin istekleri (API çağrıları dahil) asla yakalama.
+  // Bu, mobil tarayıcılardaki "bağlantı sıfırlandı" sorununu önler.
+  if (url.origin !== self.location.origin) {
+    return; // SW müdahale etmiyor, tarayıcı doğrudan isteği yönetiyor.
+  }
+
+  // Navigation istekleri (sayfa yükleme)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -50,41 +63,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Diğer istekler için cache-first stratejisi
+  // Same-origin statik dosyalar: cache-first
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
         if (cachedResponse) {
           return cachedResponse;
         }
-        
         return fetch(event.request)
           .then((response) => {
-            // Sadece GET isteklerini ve başarılı yanıtları cache'le
             if (event.request.method === 'GET' && response.ok) {
               const responseToCache = response.clone();
               caches.open(CACHE_NAME)
                 .then((cache) => cache.put(event.request, responseToCache))
-                .catch(err => console.log('Cache put error:', err));
+                .catch(() => {});
             }
             return response;
-          })
-          .catch((error) => {
-            console.log('Fetch failed:', error);
-            // Samsung için özel hata mesajı
-            if (event.request.mode === 'navigate') {
-              return caches.match('/index.html');
-            }
-            return new Response('Bağlantı hatası', {
-              status: 408,
-              headers: { 'Content-Type': 'text/plain' }
-            });
           });
+      })
+      .catch(() => {
+        return new Response('Çevrimdışı', { status: 503, headers: { 'Content-Type': 'text/plain' } });
       })
   );
 });
 
-// Samsung tarayıcısı için message handler
+// Message handler
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
