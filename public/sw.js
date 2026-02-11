@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iftar-vakti-v4';
+const CACHE_NAME = 'iftar-vakti-v5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
