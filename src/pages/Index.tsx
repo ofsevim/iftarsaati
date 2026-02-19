@@ -188,7 +188,13 @@ const Index = () => {
 
   const filteredCities = TURKEY_CITIES.filter((c) =>
     normalizeForSearch(c.name).includes(normalizeForSearch(searchQuery))
-  ).sort((a, b) => a.name.localeCompare(b.name, "tr-TR"));
+  ).sort((a, b) => {
+    const aFav = favoriteCities.includes(a.name);
+    const bFav = favoriteCities.includes(b.name);
+    if (aFav && !bFav) return -1;
+    if (!aFav && bFav) return 1;
+    return a.name.localeCompare(b.name, "tr-TR");
+  });
 
   const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -293,9 +299,9 @@ const Index = () => {
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 w-full glass-card gold-border overflow-hidden flex flex-col shadow-2xl z-50">
-                  <div className="p-2 border-b border-border">
-                    <div className="flex items-center gap-2 bg-input rounded-lg px-3 py-2">
+                <div className="absolute top-full mt-2 left-0 w-full bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border overflow-hidden flex flex-col shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="p-3 border-b border-white/10">
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5">
                       <Search className="w-4 h-4 text-muted-foreground" />
                       <input
                         type="text"
@@ -347,9 +353,9 @@ const Index = () => {
               ? (countdown.passed ? "Bayram Günü" : "Bayramın Bitimine Kalan Süre")
               : countdown.passed
                 ? "İftar vakti"
-              : countdown.mode === "imsak"
-                ? "Sahurun Bitimine Kalan Süre"
-                : "İftara Kalan Süre"}
+                : countdown.mode === "imsak"
+                  ? "Sahurun Bitimine Kalan Süre"
+                  : "İftara Kalan Süre"}
           </h2>
 
           {loading ? (

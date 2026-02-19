@@ -33,6 +33,23 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
     return () => { cancelled = true; };
   }, [city]);
 
+  const calculateBayramTime = (sunrise: string) => {
+    if (!sunrise) return "";
+    const [h, m] = sunrise.split(":").map(Number);
+    // Diyanet Ankara 07:23 verisini yakalamak için (Güneş 06:45 + 38dk) güncellendi
+    const totalMinutes = h * 60 + m + 38;
+    const bh = Math.floor(totalMinutes / 60);
+    const bm = totalMinutes % 60;
+    return `${String(bh).padStart(2, "0")}:${String(bm).padStart(2, "0")}`;
+  };
+
+  const getDayName = (dateKey: string) => {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const date = new Date(y, m - 1, d);
+    const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
+    return days[date.getDay()];
+  };
+
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
@@ -54,10 +71,10 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
           <table className="w-full text-[10px] sm:text-xs md:text-sm">
             <thead>
               <tr className="border-b" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
-                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display">Gün</th>
-                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display">Tarih</th>
+                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">Gün</th>
+                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">Tarih</th>
                 {prayerKeys.map((key) => (
-                  <th key={key} className="px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-center text-gold-light font-display">
+                  <th key={key} className="px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-center text-gold-light font-display font-medium">
                     {PRAYER_LABELS[key]}
                   </th>
                 ))}
@@ -75,7 +92,7 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                 const rowColor = isKadirGecesi
                   ? "bg-[hsla(280,60%,50%,0.12)]"
                   : isBayram
-                    ? "bg-[hsla(120,50%,40%,0.1)]"
+                    ? "bg-[hsla(36,55%,55%,0.15)]"
                     : isToday
                       ? "bg-[hsla(36,55%,55%,0.12)]"
                       : i % 2 === 0
@@ -85,7 +102,7 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                 const labelColor = isToday ? "text-gold" : (isKadirGecesi || isBayram) ? "text-gold-light" : "text-cream-muted";
 
                 const cellColor = () =>
-                  isBayram ? "text-gold-light font-semibold" :
+                  isBayram ? "text-gold font-bold" :
                     isToday ? "text-gold font-semibold" : "text-cream";
 
                 return (
@@ -94,24 +111,41 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                     className={`border-b transition-colors ${rowColor}`}
                     style={{ borderColor: "hsl(var(--gold) / 0.1)" }}
                   >
-                    <td className={`px-1 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 font-semibold ${labelColor}`}>
-                      {isBayram ? (
-                        <span className="inline-flex items-center justify-center" aria-label="Bayram">
-                          <Candy className="h-3 w-3 md:h-4 md:w-4 text-blue-400" aria-hidden="true" />
-                        </span>
-                      ) : dayLabel}
-                    </td>
-                    <td className={`px-1 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 whitespace-nowrap ${labelColor}`}>
-                      {dateLabel}
-                    </td>
-                    {prayerKeys.map((key) => (
-                      <td
-                        key={key}
-                        className={`px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 text-center font-mono ${cellColor()}`}
-                      >
-                        {isBayram && key === "Sunrise" ? `🕌 ${day.times[key]}` : day.times[key]}
+                    {isBayram ? (
+                      <td colSpan={8} className="px-3 py-3 text-center">
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4">
+                          <div className="flex items-center gap-2 text-gold-light font-display font-bold">
+                            <Candy className="h-4 w-4" />
+                            <span>{dateLabel} {getDayName(day.dateKey)} — Ramazan Bayramı</span>
+                          </div>
+                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gold/15 border border-gold/40 rounded-full animate-pulse-gold shadow-[0_0_15px_rgba(212,175,55,0.1)]">
+                            <span className="text-gold font-bold text-sm md:text-base">
+                              🕌 BAYRAM NAMAZI: {calculateBayramTime(day.times.Sunrise)}
+                            </span>
+                          </div>
+                        </div>
                       </td>
-                    ))}
+                    ) : (
+                      <>
+                        <td className={`px-1 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 font-semibold ${labelColor}`}>
+                          {dayLabel}
+                        </td>
+                        <td className={`px-1 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 whitespace-nowrap ${labelColor}`}>
+                          <div className="flex flex-col leading-none">
+                            <span className="mb-0.5">{dateLabel}</span>
+                            <span className="text-[10px] md:text-[11px] opacity-60 font-normal">{getDayName(day.dateKey)}</span>
+                          </div>
+                        </td>
+                        {prayerKeys.map((key) => (
+                          <td
+                            key={key}
+                            className={`px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 text-center font-mono ${cellColor()}`}
+                          >
+                            {day.times[key]}
+                          </td>
+                        ))}
+                      </>
+                    )}
                   </tr>
                 );
               })}
