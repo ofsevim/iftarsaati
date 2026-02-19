@@ -113,9 +113,9 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                   >
                     {isBayram ? (
                       <td colSpan={8} className="px-3 py-3 text-center">
-                        <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-4">
-                          <div className="flex items-center gap-2 text-gold-light font-display font-bold">
-                            <Candy className="h-4 w-4" />
+                        <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6">
+                          <div className="flex items-center gap-2.5 text-gold-light font-display font-bold text-base md:text-xl transform transition-transform hover:scale-105 duration-300">
+                            <Candy className="h-5 w-5 md:h-6 md:w-6" />
                             <span>{dateLabel} {getDayName(day.dateKey)} — Ramazan Bayramı</span>
                           </div>
                           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gold/15 border border-gold/40 rounded-full animate-pulse-gold shadow-[0_0_15px_rgba(212,175,55,0.1)]">
