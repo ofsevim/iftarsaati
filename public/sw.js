@@ -92,4 +92,60 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
+
+  // Bildirim zamanlama: sayfa vakit bilgisini gönderir, SW arka planda zamanlar.
+  if (event.data && event.data.type === 'SCHEDULE_NOTIFICATIONS') {
+    const { notifications } = event.data; // [{ title, body, triggerAt }]
+
+    // Önceki zamanlanmış timer'ları temizle
+    if (self._notifTimers) {
+      self._notifTimers.forEach((id) => clearTimeout(id));
+    }
+    self._notifTimers = [];
+
+    if (!notifications || !notifications.length) return;
+
+    notifications.forEach((n) => {
+      const delay = n.triggerAt - Date.now();
+      if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return;
+
+      const timerId = setTimeout(() => {
+        self.registration.showNotification(n.title, {
+          body: n.body,
+          icon: '/icon-192.png',
+          badge: '/favicon-48.png',
+          tag: n.title,
+          vibrate: [200, 100, 200],
+          requireInteraction: true,
+        });
+      }, delay);
+
+      self._notifTimers.push(timerId);
+    });
+  }
+
+  // Bildirimleri iptal et
+  if (event.data && event.data.type === 'CANCEL_NOTIFICATIONS') {
+    if (self._notifTimers) {
+      self._notifTimers.forEach((id) => clearTimeout(id));
+      self._notifTimers = [];
+    }
+  }
+});
+
+// Bildirime tıklanınca uygulamayı aç
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Zaten açık bir pencere varsa ona odaklan
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // Yoksa yeni pencere aç
+      return self.clients.openWindow('/');
+    })
+  );
 });

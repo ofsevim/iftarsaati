@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MapPin, Search, ChevronDown, Moon, Star } from "lucide-react";
 import Imsakiye from "@/components/Imsakiye";
+import DailyContentCard from "@/components/DailyContentCard";
+import NotificationManager from "@/components/NotificationManager";
 import bgPattern from "@/assets/bg-pattern.jpg";
 import {
   TURKEY_CITIES,
@@ -343,6 +345,12 @@ const Index = () => {
                 </div>
               )}
             </div>
+
+            <NotificationManager
+              iftarTime={prayerTimes?.Maghrib}
+              sahurTime={prayerTimes?.Fajr}
+              cityName={selectedCity.name}
+            />
           </div>
         </div>
 
@@ -419,6 +427,9 @@ const Index = () => {
           </div>
         )}
 
+
+        {/* Daily Content */}
+        <DailyContentCard />
 
         {/* Imsakiye */}
         <Imsakiye city={selectedCity} />

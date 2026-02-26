@@ -207,3 +207,8 @@
 .slide-in-from-bottom-5 {
   animation-name: slide-in-from-bottom;
 }
+
+/* Widget mode: transparent background for iframe embedding */
+body.widget-mode {
+  background: transparent !important;
+}
