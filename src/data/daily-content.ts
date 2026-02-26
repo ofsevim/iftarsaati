@@ -46,7 +46,7 @@ export const DAILY_REMINDERS: DailyContentItem[] = [
   },
   {
     title: "Günün Hatırlatması",
-    text: "Sahura kalkmadan önce su hazırlamak sabahı kolaylaştırır.",
+    text: "Bugün bir yakınını ara, hal hatır sor: küçük bir ilgi büyük bir mutluluk olur.",
   },
   {
     title: "Günün Hatırlatması",
