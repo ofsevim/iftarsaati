@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, BellOff, X } from "lucide-react";
+import { Bell, BellOff, X, BellRing } from "lucide-react";
 
 type NotifPref = {
   enabled: boolean;
@@ -33,8 +33,6 @@ function canNotify(): boolean {
 
 /**
  * Vakit bilgisini Service Worker'a gönderir.
- * SW kendi setTimeout'u ile arka planda bildirim zamanlar —
- * sayfa kapalı olsa bile bildirim gelir.
  */
 async function sendScheduleToSW(
   pref: NotifPref,
@@ -48,7 +46,7 @@ async function sendScheduleToSW(
   const notifications: { title: string; body: string; triggerAt: number }[] = [];
   const now = new Date();
 
-  const parseTime = (timeStr: string) => {
+  const parseTimeToday = (timeStr: string) => {
     const [h, m] = timeStr.split(":").map(Number);
     const d = new Date(now);
     d.setHours(h, m, 0, 0);
@@ -56,7 +54,7 @@ async function sendScheduleToSW(
   };
 
   if (iftarTime) {
-    const iftarDate = parseTime(iftarTime);
+    const iftarDate = parseTimeToday(iftarTime);
     const triggerAt = iftarDate.getTime() - pref.iftarMinutes * 60 * 1000;
     if (triggerAt > now.getTime()) {
       notifications.push({
@@ -68,9 +66,9 @@ async function sendScheduleToSW(
   }
 
   if (sahurTime) {
-    const sahurDate = parseTime(sahurTime);
-    // Sahur yarın sabah olabilir — eğer geçmişse yarına al
-    if (sahurDate.getTime() < now.getTime()) {
+    const sahurDate = parseTimeToday(sahurTime);
+    // Sahur sabah erken — eğer şu an akşamsa yarına al
+    if (sahurDate.getTime() <= now.getTime()) {
       sahurDate.setDate(sahurDate.getDate() + 1);
     }
     const triggerAt = sahurDate.getTime() - pref.sahurMinutes * 60 * 1000;
@@ -86,6 +84,24 @@ async function sendScheduleToSW(
   reg.active.postMessage({
     type: notifications.length > 0 ? "SCHEDULE_NOTIFICATIONS" : "CANCEL_NOTIFICATIONS",
     notifications,
+  });
+
+  return notifications.length;
+}
+
+async function sendTestNotification() {
+  const reg = await navigator.serviceWorker.ready;
+  if (!reg.active) return;
+  // 3 saniye sonra test bildirimi
+  reg.active.postMessage({
+    type: "SCHEDULE_NOTIFICATIONS",
+    notifications: [
+      {
+        title: "🌙 İftar Vakti — Test",
+        body: "Bildirimler çalışıyor! Vakti gelince bildirim alacaksınız.",
+        triggerAt: Date.now() + 3000,
+      },
+    ],
   });
 }
 
@@ -104,6 +120,8 @@ interface NotificationManagerProps {
 const NotificationManager = ({ iftarTime, sahurTime, cityName }: NotificationManagerProps) => {
   const [pref, setPref] = useState<NotifPref>(loadPref);
   const [showSettings, setShowSettings] = useState(false);
+  const [testSent, setTestSent] = useState(false);
+  const [scheduled, setScheduled] = useState<number>(0);
   const [permission, setPermission] = useState<NotificationPermission>(
     canNotify() ? Notification.permission : "denied"
   );
@@ -111,7 +129,9 @@ const NotificationManager = ({ iftarTime, sahurTime, cityName }: NotificationMan
   // Vakit veya ayar değişince SW'ye yeni zamanlama gönder
   useEffect(() => {
     if (!pref.enabled || permission !== "granted" || !canNotify()) return;
-    sendScheduleToSW(pref, iftarTime, sahurTime, cityName);
+    sendScheduleToSW(pref, iftarTime, sahurTime, cityName).then((count) => {
+      setScheduled(count ?? 0);
+    });
     return () => cancelSWNotifications();
   }, [pref, permission, iftarTime, sahurTime, cityName]);
 
@@ -134,7 +154,14 @@ const NotificationManager = ({ iftarTime, sahurTime, cityName }: NotificationMan
       setPref(newPref);
       savePref(newPref);
       cancelSWNotifications();
+      setScheduled(0);
     }
+  };
+
+  const handleTest = () => {
+    sendTestNotification();
+    setTestSent(true);
+    setTimeout(() => setTestSent(false), 5000);
   };
 
   const updateMinutes = (type: "iftar" | "sahur", value: number) => {
@@ -164,7 +191,7 @@ const NotificationManager = ({ iftarTime, sahurTime, cityName }: NotificationMan
       </button>
 
       {showSettings && (
-        <div className="absolute top-full mt-2 right-0 w-64 bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute top-full mt-2 right-0 w-72 bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-cream">Bildirimler</span>
             <button onClick={() => setShowSettings(false)} className="text-cream-muted hover:text-gold">
@@ -234,6 +261,23 @@ const NotificationManager = ({ iftarTime, sahurTime, cityName }: NotificationMan
                       ))}
                     </select>
                   </div>
+
+                  {/* Status */}
+                  <div className="text-[11px] text-cream-muted/60 pt-1">
+                    {scheduled > 0
+                      ? `✓ ${scheduled} bildirim zamanlandı`
+                      : "Bugünkü vakitler geçmiş — yarın otomatik zamanlanacak"}
+                  </div>
+
+                  {/* Test button */}
+                  <button
+                    onClick={handleTest}
+                    disabled={testSent}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-colors bg-white/5 border border-white/10 text-cream-muted hover:text-gold hover:border-[hsl(36,55%,55%,0.3)] disabled:opacity-50"
+                  >
+                    <BellRing className="w-3.5 h-3.5" />
+                    {testSent ? "3 saniye içinde gelecek..." : "Test Bildirimi Gönder"}
+                  </button>
                 </div>
               )}
             </>

@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { BookOpen, Lightbulb, ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo, useState, useRef } from "react";
+import { BookOpen, Lightbulb } from "lucide-react";
 import { DAILY_DUAS, DAILY_REMINDERS, type DailyContentItem } from "@/data/daily-content";
 
 function getDailyIndex(now: Date, size: number): number {
@@ -10,9 +10,13 @@ function getDailyIndex(now: Date, size: number): number {
   return size === 0 ? 0 : seed % size;
 }
 
+const TABS = ["dua", "hatirlatma"] as const;
+type Tab = (typeof TABS)[number];
+
 const DailyContentCard = () => {
   const now = useMemo(() => new Date(), []);
-  const [tab, setTab] = useState<"dua" | "hatirlatma">("dua");
+  const [tab, setTab] = useState<Tab>("dua");
+  const touchStartX = useRef<number | null>(null);
 
   const duaIndex = getDailyIndex(now, DAILY_DUAS.length);
   const reminderIndex = getDailyIndex(now, DAILY_REMINDERS.length);
@@ -20,11 +24,34 @@ const DailyContentCard = () => {
   const item: DailyContentItem | null =
     tab === "dua" ? DAILY_DUAS[duaIndex] : DAILY_REMINDERS[reminderIndex];
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diff = e.changedTouches[0].clientX - touchStartX.current;
+    const threshold = 50;
+    if (Math.abs(diff) > threshold) {
+      const currentIndex = TABS.indexOf(tab);
+      if (diff < 0 && currentIndex < TABS.length - 1) {
+        setTab(TABS[currentIndex + 1]);
+      } else if (diff > 0 && currentIndex > 0) {
+        setTab(TABS[currentIndex - 1]);
+      }
+    }
+    touchStartX.current = null;
+  };
+
   if (!item) return null;
 
   return (
     <div className="w-full max-w-2xl mx-auto mb-8">
-      <div className="glass-card gold-border p-4 md:p-5">
+      <div
+        className="glass-card gold-border p-4 md:p-5"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Tab buttons */}
         <div className="flex gap-2 mb-3">
           <button
@@ -59,11 +86,16 @@ const DailyContentCard = () => {
           <p className="mt-2 text-xs text-muted-foreground">{item.source}</p>
         )}
 
-        {/* Swipe hint */}
-        <div className="flex items-center justify-center gap-1 mt-3">
-          <ChevronLeft className="w-3 h-3 text-cream-muted/40" />
-          <span className="text-[10px] text-cream-muted/40">kaydır</span>
-          <ChevronRight className="w-3 h-3 text-cream-muted/40" />
+        {/* Dot indicators */}
+        <div className="flex items-center justify-center gap-1.5 mt-3">
+          {TABS.map((t) => (
+            <div
+              key={t}
+              className={`w-1.5 h-1.5 rounded-full transition-all ${
+                tab === t ? "bg-gold w-3" : "bg-cream-muted/30"
+              }`}
+            />
+          ))}
         </div>
       </div>
     </div>
