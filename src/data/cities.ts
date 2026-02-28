@@ -1,6 +1,13 @@
 // Turkey cities with coordinates for Aladhan API
-import type { LucideIcon } from "lucide-react";
-import { CloudSun, Moon, MoonStar, Sunrise, Sunset, Sun } from "lucide-react";
+import type { FC, SVGProps } from "react";
+import {
+  FajrIcon,
+  SunriseIcon,
+  DhuhrIcon,
+  AsrIcon,
+  MaghribIcon,
+  IshaIcon,
+} from "@/components/PrayerIcons";
 
 export interface City {
   name: string;
@@ -112,11 +119,11 @@ export const PRAYER_LABELS: Record<keyof PrayerTimes, string> = {
   Isha: "Yatsı",
 };
 
-export const PRAYER_ICONS: Record<keyof PrayerTimes, LucideIcon> = {
-  Fajr: Moon,
-  Sunrise: Sunrise,
-  Dhuhr: Sun,
-  Asr: CloudSun,
-  Maghrib: Sunset,
-  Isha: MoonStar,
+export const PRAYER_ICONS: Record<keyof PrayerTimes, FC<SVGProps<SVGSVGElement>>> = {
+  Fajr: FajrIcon,
+  Sunrise: SunriseIcon,
+  Dhuhr: DhuhrIcon,
+  Asr: AsrIcon,
+  Maghrib: MaghribIcon,
+  Isha: IshaIcon,
 };
