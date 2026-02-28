@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Compass, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 
@@ -6,16 +6,22 @@ import { useI18n } from "@/lib/i18n";
 const KAABA_LAT = 21.4225;
 const KAABA_LNG = 39.8262;
 
+/**
+ * Great-circle initial bearing formülü.
+ * Kaynak: https://www.movable-type.co.uk/scripts/latlong.html
+ */
 function calculateQibla(lat: number, lng: number): number {
-  const latR = (lat * Math.PI) / 180;
-  const lngR = (lng * Math.PI) / 180;
-  const kaabaLatR = (KAABA_LAT * Math.PI) / 180;
-  const kaabaLngR = (KAABA_LNG * Math.PI) / 180;
-  const dLng = kaabaLngR - lngR;
-  const x = Math.sin(dLng);
-  const y = Math.cos(latR) * Math.tan(kaabaLatR) - Math.sin(latR) * Math.cos(dLng);
-  let bearing = (Math.atan2(x, y) * 180) / Math.PI;
-  return (bearing + 360) % 360;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+
+  const φ1 = toRad(lat);
+  const φ2 = toRad(KAABA_LAT);
+  const Δλ = toRad(KAABA_LNG - lng);
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+  return (toDeg(Math.atan2(y, x)) + 360) % 360;
 }
 
 interface QiblaCompassProps {
@@ -27,53 +33,78 @@ const QiblaCompass = ({ lat, lng }: QiblaCompassProps) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [heading, setHeading] = useState<number | null>(null);
-  const [error, setError] = useState(false);
+  const [sensorAvailable, setSensorAvailable] = useState(true);
+  const headingRef = useRef<number | null>(null);
 
   const qiblaAngle = calculateQibla(lat, lng);
 
-  const startCompass = useCallback(() => {
-    // iOS requires permission
-    const doe = DeviceOrientationEvent as any;
-    if (typeof doe.requestPermission === "function") {
-      doe.requestPermission().then((perm: string) => {
-        if (perm === "granted") {
-          window.addEventListener("deviceorientationabsolute", handleOrientation as any);
-          window.addEventListener("deviceorientation", handleOrientation as any);
-        } else {
-          setError(true);
-        }
-      }).catch(() => setError(true));
-    } else {
-      window.addEventListener("deviceorientationabsolute", handleOrientation as any);
-      window.addEventListener("deviceorientation", handleOrientation as any);
+  const handleOrientation = useCallback((e: DeviceOrientationEvent) => {
+    let compassHeading: number | null = null;
+
+    // iOS: webkitCompassHeading (0-360, kuzeyden saat yönünde)
+    if ((e as any).webkitCompassHeading != null) {
+      compassHeading = (e as any).webkitCompassHeading;
+    }
+    // Android: deviceorientationabsolute event'inde alpha = manyetik kuzeyden açı
+    else if (e.alpha != null) {
+      // absolute event ise alpha doğrudan manyetik kuzey
+      // alpha: 0 = kuzey, saat yönünün tersine artar
+      // heading = saat yönünde kuzeyden açı
+      compassHeading = (360 - e.alpha) % 360;
+    }
+
+    if (compassHeading !== null) {
+      headingRef.current = compassHeading;
+      setHeading(compassHeading);
     }
   }, []);
 
-  const handleOrientation = (e: DeviceOrientationEvent) => {
-    // webkitCompassHeading for iOS, alpha for Android
-    const compassHeading = (e as any).webkitCompassHeading;
-    if (compassHeading !== undefined && compassHeading !== null) {
-      setHeading(compassHeading);
-    } else if (e.alpha !== null) {
-      // Android: alpha is relative to device, absolute if available
-      const isAbsolute = (e as any).absolute === true;
-      if (isAbsolute || e.alpha !== undefined) {
-        setHeading(360 - (e.alpha ?? 0));
-      }
+  const startCompass = useCallback(() => {
+    const doe = DeviceOrientationEvent as any;
+
+    const addListeners = () => {
+      // Önce absolute event'i dene (Android'de daha doğru)
+      window.addEventListener("deviceorientationabsolute", handleOrientation as any, true);
+      window.addEventListener("deviceorientation", handleOrientation as any, true);
+
+      // 3 saniye içinde veri gelmezse sensör yok
+      setTimeout(() => {
+        if (headingRef.current === null) {
+          setSensorAvailable(false);
+        }
+      }, 3000);
+    };
+
+    // iOS 13+ izin gerektirir
+    if (typeof doe.requestPermission === "function") {
+      doe.requestPermission()
+        .then((perm: string) => {
+          if (perm === "granted") {
+            addListeners();
+          } else {
+            setSensorAvailable(false);
+          }
+        })
+        .catch(() => setSensorAvailable(false));
+    } else {
+      addListeners();
     }
-  };
+  }, [handleOrientation]);
 
   useEffect(() => {
     if (!open) return;
+    setHeading(null);
+    setSensorAvailable(true);
+    headingRef.current = null;
     startCompass();
     return () => {
-      window.removeEventListener("deviceorientationabsolute", handleOrientation as any);
-      window.removeEventListener("deviceorientation", handleOrientation as any);
+      window.removeEventListener("deviceorientationabsolute", handleOrientation as any, true);
+      window.removeEventListener("deviceorientation", handleOrientation as any, true);
     };
-  }, [open, startCompass]);
+  }, [open, startCompass, handleOrientation]);
 
-  // Kıble iğnesi açısı: kıble yönü - cihaz yönü
-  const needleRotation = heading !== null ? qiblaAngle - heading : 0;
+  // Kıble iğnesi: kıble bearing - cihaz heading
+  const needleRotation = heading !== null ? qiblaAngle - heading : qiblaAngle;
 
   return (
     <>
@@ -97,62 +128,96 @@ const QiblaCompass = ({ lat, lng }: QiblaCompassProps) => {
             </button>
 
             <h3 className="font-display text-lg text-gold mb-2">{t("qibla")}</h3>
-            <p className="text-xs text-cream-muted mb-4">{t("qiblaDesc")}</p>
+            <p className="text-xs text-cream-muted mb-4">
+              {heading === null && sensorAvailable
+                ? t("qiblaDesc")
+                : !sensorAvailable
+                  ? t("qiblaNoSensor")
+                  : t("qiblaDesc")}
+            </p>
 
-            {error || heading === null ? (
-              <div className="w-48 h-48 mx-auto rounded-full border-2 border-[hsl(36,55%,55%,0.3)] flex items-center justify-center">
-                {error ? (
-                  <p className="text-xs text-cream-muted px-4">{t("qiblaNoSensor")}</p>
-                ) : (
-                  <div className="text-cream-muted animate-pulse">
-                    <Compass className="w-12 h-12" />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="w-48 h-48 mx-auto relative">
-                {/* Outer ring */}
-                <svg viewBox="0 0 200 200" className="w-full h-full">
-                  <circle cx="100" cy="100" r="95" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="1" opacity="0.3" />
-                  <circle cx="100" cy="100" r="80" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.5" opacity="0.15" />
-                  {/* Cardinal directions */}
-                  {["N", "E", "S", "W"].map((dir, i) => {
-                    const angle = i * 90 - (heading ?? 0);
-                    const rad = (angle * Math.PI) / 180;
-                    const x = 100 + 88 * Math.sin(rad);
-                    const y = 100 - 88 * Math.cos(rad);
-                    return (
-                      <text
-                        key={dir}
-                        x={x}
-                        y={y}
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fill="hsl(40,20%,80%)"
-                        fontSize="10"
-                        opacity="0.5"
-                      >
-                        {dir}
-                      </text>
-                    );
-                  })}
-                  {/* Qibla needle */}
-                  <g transform={`rotate(${needleRotation}, 100, 100)`}>
-                    <line x1="100" y1="100" x2="100" y2="25" stroke="hsl(36,55%,55%)" strokeWidth="3" strokeLinecap="round" />
-                    <polygon points="100,18 94,32 106,32" fill="hsl(36,55%,55%)" />
-                    {/* Kaaba icon at tip */}
-                    <rect x="95" y="12" width="10" height="10" rx="1" fill="hsl(36,55%,55%)" opacity="0.8" />
-                    <text x="100" y="20" textAnchor="middle" dominantBaseline="central" fontSize="7">🕋</text>
+            <div className="w-52 h-52 mx-auto relative">
+              <svg viewBox="0 0 200 200" className="w-full h-full">
+                {/* Dış halka */}
+                <circle cx="100" cy="100" r="95" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="1.5" opacity="0.25" />
+                <circle cx="100" cy="100" r="75" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.5" opacity="0.1" />
+
+                {/* Yön harfleri — pusula döndüğünde bunlar da döner */}
+                {heading !== null && (
+                  <g transform={`rotate(${-heading}, 100, 100)`}>
+                    {[
+                      { label: "N", angle: 0 },
+                      { label: "E", angle: 90 },
+                      { label: "S", angle: 180 },
+                      { label: "W", angle: 270 },
+                    ].map(({ label, angle }) => {
+                      const rad = (angle * Math.PI) / 180;
+                      const cx = 100 + 86 * Math.sin(rad);
+                      const cy = 100 - 86 * Math.cos(rad);
+                      return (
+                        <text
+                          key={label}
+                          x={cx}
+                          y={cy}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          fill={label === "N" ? "hsl(36,55%,55%)" : "hsl(40,20%,80%)"}
+                          fontSize={label === "N" ? "12" : "10"}
+                          fontWeight={label === "N" ? "bold" : "normal"}
+                          opacity={label === "N" ? 0.8 : 0.4}
+                        >
+                          {label}
+                        </text>
+                      );
+                    })}
+                    {/* Kuzey işareti */}
+                    <polygon
+                      points="100,12 96,22 104,22"
+                      fill="hsl(0,60%,50%)"
+                      opacity="0.5"
+                    />
                   </g>
-                  {/* Center dot */}
-                  <circle cx="100" cy="100" r="4" fill="hsl(36,55%,55%)" opacity="0.6" />
-                </svg>
+                )}
 
-                <div className="absolute bottom-0 left-0 right-0 text-center">
-                  <span className="text-xs text-cream-muted">{Math.round(qiblaAngle)}°</span>
-                </div>
+                {/* Kıble iğnesi */}
+                <g transform={`rotate(${needleRotation}, 100, 100)`}>
+                  {/* İğne gövdesi */}
+                  <line
+                    x1="100" y1="100" x2="100" y2="28"
+                    stroke="hsl(36,55%,55%)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                  {/* Ok ucu */}
+                  <polygon points="100,20 94,34 106,34" fill="hsl(36,55%,55%)" />
+                  {/* Kabe emoji */}
+                  <text x="100" y="14" textAnchor="middle" dominantBaseline="central" fontSize="14">🕋</text>
+                </g>
+
+                {/* Merkez nokta */}
+                <circle cx="100" cy="100" r="5" fill="hsl(36,55%,55%)" opacity="0.5" />
+                <circle cx="100" cy="100" r="2" fill="hsl(36,60%,70%)" />
+              </svg>
+            </div>
+
+            {/* Bilgi */}
+            <div className="mt-3 space-y-1">
+              <div className="text-xs text-cream-muted">
+                {t("qibla")}: {Math.round(qiblaAngle)}°
               </div>
-            )}
+              {heading !== null && (
+                <div className="text-[11px] text-cream-muted/50">
+                  {heading === null ? "" : `Pusula: ${Math.round(heading)}°`}
+                </div>
+              )}
+              {!sensorAvailable && (
+                <div className="text-[11px] text-cream-muted/60 mt-2">
+                  {t("qiblaNoSensor")}
+                  <br />
+                  <span className="text-gold/60">↑ Kıble yönü: {Math.round(qiblaAngle)}° (kuzeyden)</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

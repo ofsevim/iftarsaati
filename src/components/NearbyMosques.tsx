@@ -6,7 +6,7 @@ interface Mosque {
   name: string;
   lat: number;
   lng: number;
-  distance: number; // km
+  distance: number;
 }
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -20,33 +20,62 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
 }
 
 async function fetchNearbyMosques(lat: number, lng: number): Promise<Mosque[]> {
-  const radius = 3000; // 3km
-  const query = `[out:json][timeout:10];(node["amenity"="place_of_worship"]["religion"="muslim"](around:${radius},${lat},${lng});way["amenity"="place_of_worship"]["religion"="muslim"](around:${radius},${lat},${lng}););out center body 20;`;
+  const radius = 5000;
+  // Türkiye'deki camiler OSM'de farklı şekillerde etiketlenmiş olabiliyor:
+  // - amenity=place_of_worship + religion=muslim
+  // - amenity=place_of_worship + name içinde "cami/camii/mosque"
+  // - building=mosque
+  // Hepsini yakalayalım
+  const query = `[out:json][timeout:15];
+(
+  node["amenity"="place_of_worship"]["religion"="muslim"](around:${radius},${lat},${lng});
+  way["amenity"="place_of_worship"]["religion"="muslim"](around:${radius},${lat},${lng});
+  node["building"="mosque"](around:${radius},${lat},${lng});
+  way["building"="mosque"](around:${radius},${lat},${lng});
+  node["amenity"="place_of_worship"]["name"~"[Cc]ami|[Mm]osque|[Mm]escid"](around:${radius},${lat},${lng});
+  way["amenity"="place_of_worship"]["name"~"[Cc]ami|[Mm]osque|[Mm]escid"](around:${radius},${lat},${lng});
+);
+out center body 30;`;
 
-  const res = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    body: `data=${encodeURIComponent(query)}`,
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-  const data = await res.json();
-  if (!data?.elements) return [];
+  try {
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
 
-  return data.elements
-    .map((el: any) => {
-      const elLat = el.lat ?? el.center?.lat;
-      const elLng = el.lon ?? el.center?.lon;
-      if (!elLat || !elLng) return null;
-      return {
-        name: el.tags?.name || "Cami",
-        lat: elLat,
-        lng: elLng,
-        distance: haversine(lat, lng, elLat, elLng),
-      };
-    })
-    .filter(Boolean)
-    .sort((a: Mosque, b: Mosque) => a.distance - b.distance)
-    .slice(0, 10);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    if (!data?.elements) return [];
+
+    // Deduplicate by name+proximity
+    const seen = new Set<string>();
+    return data.elements
+      .map((el: any) => {
+        const elLat = el.lat ?? el.center?.lat;
+        const elLng = el.lon ?? el.center?.lon;
+        if (!elLat || !elLng) return null;
+        const name = el.tags?.name || "Cami";
+        const dist = haversine(lat, lng, elLat, elLng);
+        // Aynı isim + 50m yakınlıktaki duplikatları atla
+        const key = `${name}_${Math.round(elLat * 1000)}_${Math.round(elLng * 1000)}`;
+        if (seen.has(key)) return null;
+        seen.add(key);
+        return { name, lat: elLat, lng: elLng, distance: dist };
+      })
+      .filter(Boolean)
+      .sort((a: Mosque, b: Mosque) => a.distance - b.distance)
+      .slice(0, 15);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
 }
 
 const NearbyMosques = () => {
@@ -54,15 +83,17 @@ const NearbyMosques = () => {
   const [open, setOpen] = useState(false);
   const [mosques, setMosques] = useState<Mosque[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [fetched, setFetched] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || fetched) return;
+
     setLoading(true);
-    setError(false);
+    setErrorMsg(null);
 
     if (!navigator.geolocation) {
-      setError(true);
+      setErrorMsg(t("mosquesError"));
       setLoading(false);
       return;
     }
@@ -72,21 +103,31 @@ const NearbyMosques = () => {
         try {
           const results = await fetchNearbyMosques(pos.coords.latitude, pos.coords.longitude);
           setMosques(results);
-        } catch {
-          setError(true);
+          setFetched(true);
+        } catch (err) {
+          console.error("[NearbyMosques]", err);
+          setErrorMsg(t("mosquesError"));
         }
         setLoading(false);
       },
-      () => {
-        setError(true);
+      (err) => {
+        console.error("[NearbyMosques] Geolocation error:", err.message);
+        setErrorMsg(t("mosquesError"));
         setLoading(false);
-      }
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
     );
-  }, [open]);
+  }, [open, fetched, t]);
 
   const openInMaps = (mosque: Mosque) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${mosque.lat},${mosque.lng}`;
     window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleRetry = () => {
+    setFetched(false);
+    setErrorMsg(null);
+    setMosques([]);
   };
 
   return (
@@ -113,16 +154,27 @@ const NearbyMosques = () => {
             <h3 className="font-display text-lg text-gold mb-4">{t("nearbyMosques")}</h3>
 
             {loading ? (
-              <p className="text-sm text-cream-muted animate-pulse">{t("mosquesLoading")}</p>
-            ) : error ? (
-              <p className="text-sm text-cream-muted">{t("mosquesError")}</p>
+              <div className="text-center py-8">
+                <div className="inline-block w-6 h-6 border-2 border-gold/30 border-t-gold rounded-full animate-spin mb-3" />
+                <p className="text-sm text-cream-muted">{t("mosquesLoading")}</p>
+              </div>
+            ) : errorMsg ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-cream-muted mb-3">{errorMsg}</p>
+                <button
+                  onClick={handleRetry}
+                  className="text-xs text-gold hover:text-gold-light transition-colors"
+                >
+                  Tekrar dene
+                </button>
+              </div>
             ) : mosques.length === 0 ? (
-              <p className="text-sm text-cream-muted">{t("mosquesNone")}</p>
+              <p className="text-sm text-cream-muted text-center py-6">{t("mosquesNone")}</p>
             ) : (
               <div className="overflow-y-auto space-y-2 flex-1">
                 {mosques.map((mosque, i) => (
                   <button
-                    key={i}
+                    key={`${mosque.name}-${i}`}
                     onClick={() => openInMaps(mosque)}
                     className="w-full flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 hover:border-[hsl(36,55%,55%,0.3)] transition-colors text-left"
                   >
