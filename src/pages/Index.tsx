@@ -3,6 +3,10 @@ import { MapPin, Search, ChevronDown, Moon, Star } from "lucide-react";
 import Imsakiye from "@/components/Imsakiye";
 import DailyContentCard from "@/components/DailyContentCard";
 import NotificationManager from "@/components/NotificationManager";
+import QiblaCompass from "@/components/QiblaCompass";
+import NearbyMosques from "@/components/NearbyMosques";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useI18n } from "@/lib/i18n";
 import bgPattern from "@/assets/bg-pattern.jpg";
 import {
   TURKEY_CITIES,
@@ -41,6 +45,7 @@ function safeStorageSet(key: string, value: string): void {
 }
 
 const Index = () => {
+  const { t } = useI18n();
   const [selectedCity, setSelectedCity] = useState<City>(() => {
     const savedCity = safeStorageGet("selectedCity");
     if (savedCity) {
@@ -252,12 +257,12 @@ const Index = () => {
           <div className="flex items-center justify-center gap-3 mb-3">
             <Moon className="w-8 h-8 text-gold animate-pulse-gold" />
             <h1 className="text-4xl md:text-5xl font-display font-bold text-gold">
-              İftar Vakti
+              {t("appTitle")}
             </h1>
             <Moon className="w-8 h-8 text-gold animate-pulse-gold" />
           </div>
           <p className="text-cream-muted text-sm md:text-base">
-            Ramazan-ı Şerif'iniz mübarek olsun
+            {t("subtitle")}
           </p>
         </div>
 
@@ -288,7 +293,7 @@ const Index = () => {
               className="glass-card gold-border px-3 sm:px-4 py-2.5 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream-muted hover:text-gold transition-colors cursor-pointer shrink-0"
             >
               <MapPin className="w-3.5 h-3.5 sm:w-4 h-4" />
-              <span className="whitespace-nowrap">{locating ? "..." : "Konum"}</span>
+              <span className="whitespace-nowrap">{locating ? "..." : t("location")}</span>
             </button>
 
             <div className="relative flex-grow max-w-[200px]" ref={dropdownRef}>
@@ -307,7 +312,7 @@ const Index = () => {
                       <Search className="w-4 h-4 text-muted-foreground" />
                       <input
                         type="text"
-                        placeholder="Şehir ara..."
+                        placeholder={t("searchCity")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="bg-transparent text-sm text-cream outline-none w-full placeholder:text-muted-foreground"
@@ -351,6 +356,9 @@ const Index = () => {
               sahurTime={prayerTimes?.Fajr}
               cityName={selectedCity.name}
             />
+            <QiblaCompass lat={selectedCity.lat} lng={selectedCity.lng} />
+            <NearbyMosques />
+            <LanguageSwitcher />
           </div>
         </div>
 
@@ -358,37 +366,37 @@ const Index = () => {
         <div className="mb-10 text-center">
           <h2 className="font-display text-xl md:text-2xl text-gold-light mb-6">
             {countdown.mode === "bayram"
-              ? (countdown.passed ? "Bayram Günü" : "Bayramın Bitimine Kalan Süre")
+              ? (countdown.passed ? t("bayramDay") : t("bayramCountdown"))
               : countdown.passed
-                ? "İftar vakti"
+                ? t("iftarTime")
                 : countdown.mode === "imsak"
-                  ? "Sahurun Bitimine Kalan Süre"
-                  : "İftara Kalan Süre"}
+                  ? t("timeToSahur")
+                  : t("timeToIftar")}
           </h2>
 
           {loading ? (
-            <div className="text-cream-muted animate-pulse">Vakitler yükleniyor...</div>
+            <div className="text-cream-muted animate-pulse">{t("loading")}</div>
           ) : !prayerTimes ? (
-            <div className="text-cream-muted">Vakit verileri şu an alınamadı.</div>
+            <div className="text-cream-muted">{t("noData")}</div>
           ) : countdown.passed ? (
             <div className="text-2xl md:text-3xl font-display text-gold">
-              {countdown.mode === "bayram" ? "Bayramınız Mübarek Olsun!" : "Hayırlı İftarlar! 🌙"}
+              {countdown.mode === "bayram" ? t("happyBayram") : t("happyIftar")}
             </div>
           ) : (
             <div className="flex items-center gap-3 md:gap-4 justify-center">
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.hours || 0)}</div>
-                <span className="text-xs text-cream-muted mt-2 block">Saat</span>
+                <span className="text-xs text-cream-muted mt-2 block">{t("hours")}</span>
               </div>
               <span className="text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.minutes || 0)}</div>
-                <span className="text-xs text-cream-muted mt-2 block">Dakika</span>
+                <span className="text-xs text-cream-muted mt-2 block">{t("minutes")}</span>
               </div>
               <span className="text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.seconds || 0)}</div>
-                <span className="text-xs text-cream-muted mt-2 block">Saniye</span>
+                <span className="text-xs text-cream-muted mt-2 block">{t("seconds")}</span>
               </div>
             </div>
           )}
@@ -398,7 +406,7 @@ const Index = () => {
         {prayerTimes && (
           <div className="w-full max-w-3xl mb-10">
             <h3 className="font-display text-lg text-gold-light text-center mb-4">
-              {selectedCity.name} — Namaz Vakitleri
+              {selectedCity.name} — {t("prayerTimes")}
             </h3>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
               {(Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[]).map((key) => (
@@ -417,7 +425,7 @@ const Index = () => {
                       );
                     })()}
                   </div>
-                  <div className="text-xs text-cream-muted mb-1">{PRAYER_LABELS[key]}</div>
+                  <div className="text-xs text-cream-muted mb-1">{t(key.toLowerCase() as any)}</div>
                   <div className="text-lg font-semibold text-cream font-sans">
                     {prayerTimes[key]}
                   </div>
@@ -437,7 +445,7 @@ const Index = () => {
         {/* Footer */}
         <footer className="mt-1.5 mb-2 text-center">
           <p className="text-xs text-cream-muted/50">
-            Bu bir{" "}
+            {t("footerText")}{" "}
             <a
               href="https://omersevim.com.tr"
               target="_blank"
@@ -446,7 +454,7 @@ const Index = () => {
             >
               Osoft
             </a>{" "}
-            ürünüdür
+            {t("footerProduct")}
           </p>
         </footer>
       </div>

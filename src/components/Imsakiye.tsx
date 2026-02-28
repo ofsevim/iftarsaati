@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Candy } from "lucide-react";
-import { City, PRAYER_LABELS, type PrayerTimes } from "@/data/cities";
+import { City, type PrayerTimes } from "@/data/cities";
 import { fetchMonthlyPrayerTimes, type DailyPrayerTimes } from "@/lib/prayer-api";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 
 interface ImsakiyeProps {
   city: City;
@@ -16,6 +17,7 @@ const KADIR_GECESI_INDEX = 26;
 const BAYRAM_INDEX = 30;
 
 const Imsakiye = ({ city }: ImsakiyeProps) => {
+  const { t } = useI18n();
   const [days, setDays] = useState<DailyPrayerTimes[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,8 +48,8 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
   const getDayName = (dateKey: string) => {
     const [y, m, d] = dateKey.split('-').map(Number);
     const date = new Date(y, m - 1, d);
-    const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
-    return days[date.getDay()];
+    const dayKeys: TranslationKey[] = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    return t(dayKeys[date.getDay()]);
   };
 
   const today = new Date();
@@ -58,12 +60,12 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
   return (
     <div className="w-full max-w-4xl mt-12 mb-8">
       <h3 className="font-display text-xl md:text-2xl text-gold text-center mb-6">
-        {city.name} — Ramazan İmsakiyesi 2026
+        {city.name} — {t("imsakiye")}
       </h3>
 
       {loading ? (
         <div className="text-center text-cream-muted animate-pulse py-8">
-          İmsakiye yükleniyor...
+          {t("loading")}
         </div>
       ) : (
         <div className="glass-card gold-border overflow-hidden">
@@ -71,11 +73,11 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
           <table className="w-full text-[10px] sm:text-xs md:text-sm">
             <thead>
               <tr className="border-b" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
-                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">Gün</th>
-                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">Tarih</th>
+                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">{t("day")}</th>
+                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">{t("date")}</th>
                 {prayerKeys.map((key) => (
                   <th key={key} className="px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-center text-gold-light font-display font-medium">
-                    {PRAYER_LABELS[key]}
+                    {t(key.toLowerCase() as TranslationKey)}
                   </th>
                 ))}
               </tr>
@@ -116,11 +118,11 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                         <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6">
                           <div className="flex items-center gap-2.5 text-gold-light font-display font-bold text-base md:text-xl transform transition-transform hover:scale-105 duration-300">
                             <Candy className="h-5 w-5 md:h-6 md:w-6" />
-                            <span>{dateLabel} {getDayName(day.dateKey)} — Ramazan Bayramı</span>
+                            <span>{dateLabel} {getDayName(day.dateKey)} — {t("ramadanBayram")}</span>
                           </div>
                           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gold/15 border border-gold/40 rounded-full animate-pulse-gold shadow-[0_0_15px_rgba(212,175,55,0.1)]">
                             <span className="text-gold font-bold text-sm md:text-base">
-                              🕌 BAYRAM NAMAZI: {calculateBayramTime(day.times.Sunrise)}
+                              🕌 {t("bayramNamazi")}: {calculateBayramTime(day.times.Sunrise)}
                             </span>
                           </div>
                         </div>

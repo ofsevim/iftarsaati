@@ -1,6 +1,7 @@
 import { useMemo, useState, useRef } from "react";
 import { BookOpen, Lightbulb } from "lucide-react";
 import { DAILY_DUAS, DAILY_REMINDERS, type DailyContentItem } from "@/data/daily-content";
+import { useI18n } from "@/lib/i18n";
 
 function getDailyIndex(now: Date, size: number): number {
   const y = now.getFullYear();
@@ -14,6 +15,7 @@ const TABS = ["dua", "hatirlatma"] as const;
 type Tab = (typeof TABS)[number];
 
 const DailyContentCard = () => {
+  const { t } = useI18n();
   const now = useMemo(() => new Date(), []);
   const [tab, setTab] = useState<Tab>("dua");
   const touchStartX = useRef<number | null>(null);
@@ -63,7 +65,7 @@ const DailyContentCard = () => {
             }`}
           >
             <BookOpen className="w-3.5 h-3.5" />
-            Günün Duası
+            {t("dailyDua")}
           </button>
           <button
             onClick={() => setTab("hatirlatma")}
@@ -74,7 +76,7 @@ const DailyContentCard = () => {
             }`}
           >
             <Lightbulb className="w-3.5 h-3.5" />
-            Hatırlatma
+            {t("dailyReminder")}
           </button>
         </div>
 
@@ -88,11 +90,11 @@ const DailyContentCard = () => {
 
         {/* Dot indicators */}
         <div className="flex items-center justify-center gap-1.5 mt-3">
-          {TABS.map((t) => (
+          {TABS.map((tabKey) => (
             <div
-              key={t}
+              key={tabKey}
               className={`w-1.5 h-1.5 rounded-full transition-all ${
-                tab === t ? "bg-gold w-3" : "bg-cream-muted/30"
+                tab === tabKey ? "bg-gold w-3" : "bg-cream-muted/30"
               }`}
             />
           ))}
