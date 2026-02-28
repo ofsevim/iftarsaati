@@ -21,12 +21,7 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
 
 async function fetchNearbyMosques(lat: number, lng: number): Promise<Mosque[]> {
   const radius = 5000;
-  // Türkiye'deki camiler OSM'de farklı şekillerde etiketlenmiş olabiliyor:
-  // - amenity=place_of_worship + religion=muslim
-  // - amenity=place_of_worship + name içinde "cami/camii/mosque"
-  // - building=mosque
-  // Hepsini yakalayalım
-  const query = `[out:json][timeout:15];
+  const query = `[out:json][timeout:25];
 (
   node["amenity"="place_of_worship"]["religion"="muslim"](around:${radius},${lat},${lng});
   way["amenity"="place_of_worship"]["religion"="muslim"](around:${radius},${lat},${lng});
@@ -37,87 +32,92 @@ async function fetchNearbyMosques(lat: number, lng: number): Promise<Mosque[]> {
 );
 out center body 30;`;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const res = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    body: `data=${encodeURIComponent(query)}`,
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  });
 
-  try {
-    const res = await fetch("https://overpass-api.de/api/interpreter", {
-      method: "POST",
-      body: `data=${encodeURIComponent(query)}`,
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (!data?.elements) return [];
 
-    const data = await res.json();
-    if (!data?.elements) return [];
-
-    // Deduplicate by name+proximity
-    const seen = new Set<string>();
-    return data.elements
-      .map((el: any) => {
-        const elLat = el.lat ?? el.center?.lat;
-        const elLng = el.lon ?? el.center?.lon;
-        if (!elLat || !elLng) return null;
-        const name = el.tags?.name || "Cami";
-        const dist = haversine(lat, lng, elLat, elLng);
-        // Aynı isim + 50m yakınlıktaki duplikatları atla
-        const key = `${name}_${Math.round(elLat * 1000)}_${Math.round(elLng * 1000)}`;
-        if (seen.has(key)) return null;
-        seen.add(key);
-        return { name, lat: elLat, lng: elLng, distance: dist };
-      })
-      .filter(Boolean)
-      .sort((a: Mosque, b: Mosque) => a.distance - b.distance)
-      .slice(0, 15);
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
-  }
+  const seen = new Set<string>();
+  return data.elements
+    .map((el: any) => {
+      const elLat = el.lat ?? el.center?.lat;
+      const elLng = el.lon ?? el.center?.lon;
+      if (!elLat || !elLng) return null;
+      const name = el.tags?.name || "Cami";
+      const dist = haversine(lat, lng, elLat, elLng);
+      const key = `${name}_${Math.round(elLat * 1000)}_${Math.round(elLng * 1000)}`;
+      if (seen.has(key)) return null;
+      seen.add(key);
+      return { name, lat: elLat, lng: elLng, distance: dist };
+    })
+    .filter(Boolean)
+    .sort((a: Mosque, b: Mosque) => a.distance - b.distance)
+    .slice(0, 15);
 }
 
-const NearbyMosques = () => {
+const NearbyMosques = ({ fallbackLat, fallbackLng }: { fallbackLat: number; fallbackLng: number }) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [mosques, setMosques] = useState<Mosque[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fetched, setFetched] = useState(false);
+  const [usedFallback, setUsedFallback] = useState(false);
+
+  const doFetch = async (lat: number, lng: number, isFallback: boolean) => {
+    setLoading(true);
+    setErrorMsg(null);
+    try {
+      const results = await fetchNearbyMosques(lat, lng);
+      setMosques(results);
+      setFetched(true);
+      setUsedFallback(isFallback);
+    } catch (err) {
+      console.error("[NearbyMosques]", err);
+      // Gerçek konum başarısız olduysa ve fallback henüz denenmemişse, fallback dene
+      if (!isFallback) {
+        try {
+          const results = await fetchNearbyMosques(fallbackLat, fallbackLng);
+          setMosques(results);
+          setFetched(true);
+          setUsedFallback(true);
+        } catch {
+          setErrorMsg(t("mosquesError"));
+        }
+      } else {
+        setErrorMsg(t("mosquesError"));
+      }
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (!open || fetched) return;
 
-    setLoading(true);
-    setErrorMsg(null);
-
     if (!navigator.geolocation) {
-      setErrorMsg(t("mosquesError"));
-      setLoading(false);
+      // Geolocation yok — doğrudan şehir merkezini kullan
+      doFetch(fallbackLat, fallbackLng, true);
       return;
     }
 
+    setLoading(true);
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const results = await fetchNearbyMosques(pos.coords.latitude, pos.coords.longitude);
-          setMosques(results);
-          setFetched(true);
-        } catch (err) {
-          console.error("[NearbyMosques]", err);
-          setErrorMsg(t("mosquesError"));
-        }
-        setLoading(false);
+      (pos) => doFetch(pos.coords.latitude, pos.coords.longitude, false),
+      () => {
+        // Konum alınamadı — şehir merkezini kullan
+        console.info("[NearbyMosques] Konum alınamadı, şehir merkezi kullanılıyor.");
+        doFetch(fallbackLat, fallbackLng, true);
       },
-      (err) => {
-        console.error("[NearbyMosques] Geolocation error:", err.message);
-        setErrorMsg(t("mosquesError"));
-        setLoading(false);
-      },
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: false, timeout: 30000, maximumAge: 300000 }
     );
-  }, [open, fetched, t]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, fetched]);
 
   const openInMaps = (mosque: Mosque) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${mosque.lat},${mosque.lng}`;
@@ -172,6 +172,11 @@ const NearbyMosques = () => {
               <p className="text-sm text-cream-muted text-center py-6">{t("mosquesNone")}</p>
             ) : (
               <div className="overflow-y-auto space-y-2 flex-1">
+                {usedFallback && (
+                  <p className="text-[11px] text-cream-muted/50 mb-1 text-center">
+                    Şehir merkezi baz alındı
+                  </p>
+                )}
                 {mosques.map((mosque, i) => (
                   <button
                     key={`${mosque.name}-${i}`}

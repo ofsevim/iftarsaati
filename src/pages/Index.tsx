@@ -357,7 +357,7 @@ const Index = () => {
               cityName={selectedCity.name}
             />
             <QiblaCompass lat={selectedCity.lat} lng={selectedCity.lng} />
-            <NearbyMosques />
+            <NearbyMosques fallbackLat={selectedCity.lat} fallbackLng={selectedCity.lng} />
             <LanguageSwitcher />
           </div>
         </div>
