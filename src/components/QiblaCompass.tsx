@@ -37,9 +37,9 @@ const QiblaCompass = ({ lat, lng }: QiblaCompassProps) => {
     if (e.alpha == null) return;
     usingAbsolute.current = true;
     receivedData.current = true;
-    // absolute event: alpha = cihazın manyetik kuzeyden saat yönü tersine açısı
-    // heading (saat yönünde kuzeyden) = (360 - alpha) % 360
-    const h = (360 - e.alpha) % 360;
+    // Android Chrome: deviceorientationabsolute alpha = saat yönünde kuzeyden derece
+    // alpha=0 → kuzey, alpha=90 → doğu, alpha=180 → güney
+    const h = e.alpha;
     setHasCompass(true);
     setHeading(h);
     setDebug(`abs α=${Math.round(e.alpha)} → h=${Math.round(h)}`);
@@ -60,11 +60,11 @@ const QiblaCompass = ({ lat, lng }: QiblaCompassProps) => {
       return;
     }
 
-    // Android fallback (relative orientation — güvenilir değil ama son çare)
+    // Android fallback (relative orientation)
     if (e.alpha != null) {
       receivedData.current = true;
       setHasCompass(true);
-      const h = (360 - e.alpha) % 360;
+      const h = e.alpha;
       setHeading(h);
       setDebug(`rel α=${Math.round(e.alpha)} → h=${Math.round(h)}`);
     }
