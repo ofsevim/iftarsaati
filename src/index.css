@@ -110,13 +110,6 @@
     box-shadow: 0 8px 32px hsla(var(--glass-shadow));
   }
 
-  .glass-card-backdrop {
-    @apply rounded-2xl border backdrop-blur-xl;
-    background: hsla(var(--glass-bg));
-    border-color: hsla(var(--glass-border));
-    box-shadow: 0 8px 32px hsla(var(--glass-shadow));
-  }
-
   .gold-border {
     border: 1px solid hsl(var(--gold) / 0.3);
   }

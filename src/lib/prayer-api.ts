@@ -327,15 +327,6 @@ export function findNearestCity(
   return nearest;
 }
 
-export function getTimeUntilIftar(maghribTime: string): {
-  hours: number;
-  minutes: number;
-  seconds: number;
-  passed: boolean;
-} {
-  return getTimeUntilIftarWithEzan(maghribTime);
-}
-
 /**
  * İftar sayacı:
  * - Akşam ezanı başladığında iftar vaktidir.
