@@ -60,7 +60,7 @@ const DailyContentCard = () => {
   };
 
   const tabStyle = (t: Tab) =>
-    `flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+    `flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all flex-1 justify-center ${
       tab === t
         ? "bg-[hsl(36,55%,55%,0.15)] text-gold border border-[hsl(36,55%,55%,0.3)]"
         : "text-cream-muted hover:text-gold"
@@ -74,7 +74,7 @@ const DailyContentCard = () => {
         onTouchEnd={handleTouchEnd}
       >
         {/* Tab buttons */}
-        <div className="flex gap-2 mb-3 flex-wrap">
+        <div className="flex gap-1.5 mb-3">
           <button onClick={() => setTab("dua")} className={tabStyle("dua")}>
             <BookOpen className="w-3.5 h-3.5" />
             Günün Duası
