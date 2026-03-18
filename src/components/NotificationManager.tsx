@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Bell, BellOff, X, BellRing } from "lucide-react";
+import { fetchPrayerTimesForDate } from "@/lib/prayer-api";
+import type { City } from "@/data/cities";
 
 type NotifPref = {
   enabled: boolean;
@@ -31,55 +33,77 @@ function canNotify(): boolean {
   return "Notification" in window && "serviceWorker" in navigator;
 }
 
-/**
- * Vakit bilgisini Service Worker'a gönderir.
- */
-async function sendScheduleToSW(
+async function buildNotifications(
   pref: NotifPref,
-  iftarTime: string | undefined,
-  sahurTime: string | undefined,
-  cityName: string
-) {
-  const reg = await navigator.serviceWorker.ready;
-  if (!reg.active) return;
-
+  city: City,
+  todayIftar: string | undefined,
+  todaySahur: string | undefined
+): Promise<{ title: string; body: string; triggerAt: number }[]> {
   const notifications: { title: string; body: string; triggerAt: number }[] = [];
   const now = new Date();
 
-  const parseTimeToday = (timeStr: string) => {
-    const [h, m] = timeStr.split(":").map(Number);
-    const d = new Date(now);
-    d.setHours(h, m, 0, 0);
-    return d;
-  };
+  for (let i = 0; i < 3; i++) {
+    const dayDate = new Date(now);
+    dayDate.setDate(now.getDate() + i);
 
-  if (iftarTime) {
-    const iftarDate = parseTimeToday(iftarTime);
-    const triggerAt = iftarDate.getTime() - pref.iftarMinutes * 60 * 1000;
-    if (triggerAt > now.getTime()) {
-      notifications.push({
-        title: "🌙 İftar Yaklaşıyor",
-        body: `${cityName} için iftara ${pref.iftarMinutes} dakika kaldı!`,
-        triggerAt,
-      });
+    let iftarTime: string | undefined;
+    let sahurTime: string | undefined;
+
+    if (i === 0) {
+      iftarTime = todayIftar;
+      sahurTime = todaySahur;
+    } else {
+      try {
+        const times = await fetchPrayerTimesForDate(city, dayDate);
+        iftarTime = times?.Maghrib;
+        sahurTime = times?.Fajr;
+      } catch {
+        continue;
+      }
+    }
+
+    if (iftarTime) {
+      const [h, m] = iftarTime.split(":").map(Number);
+      const iftarDate = new Date(dayDate);
+      iftarDate.setHours(h, m, 0, 0);
+      const triggerAt = iftarDate.getTime() - pref.iftarMinutes * 60 * 1000;
+      if (triggerAt > now.getTime()) {
+        notifications.push({
+          title: "🌙 İftar Yaklaşıyor",
+          body: `${city.name} için iftara ${pref.iftarMinutes} dakika kaldı!`,
+          triggerAt,
+        });
+      }
+    }
+
+    if (sahurTime) {
+      const [h, m] = sahurTime.split(":").map(Number);
+      const sahurDate = new Date(dayDate);
+      sahurDate.setHours(h, m, 0, 0);
+      const triggerAt = sahurDate.getTime() - pref.sahurMinutes * 60 * 1000;
+      if (triggerAt > now.getTime()) {
+        notifications.push({
+          title: "🍽️ Sahur Vakti",
+          body: `${city.name} için sahura ${pref.sahurMinutes} dakika kaldı!`,
+          triggerAt,
+        });
+      }
     }
   }
 
-  if (sahurTime) {
-    const sahurDate = parseTimeToday(sahurTime);
-    // Sahur sabah erken — eğer şu an akşamsa yarına al
-    if (sahurDate.getTime() <= now.getTime()) {
-      sahurDate.setDate(sahurDate.getDate() + 1);
-    }
-    const triggerAt = sahurDate.getTime() - pref.sahurMinutes * 60 * 1000;
-    if (triggerAt > now.getTime()) {
-      notifications.push({
-        title: "🍽️ Sahur Vakti",
-        body: `${cityName} için sahura ${pref.sahurMinutes} dakika kaldı!`,
-        triggerAt,
-      });
-    }
-  }
+  return notifications;
+}
+
+async function sendScheduleToSW(
+  pref: NotifPref,
+  city: City,
+  iftarTime: string | undefined,
+  sahurTime: string | undefined
+): Promise<number> {
+  const reg = await navigator.serviceWorker.ready;
+  if (!reg.active) return 0;
+
+  const notifications = await buildNotifications(pref, city, iftarTime, sahurTime);
 
   reg.active.postMessage({
     type: notifications.length > 0 ? "SCHEDULE_NOTIFICATIONS" : "CANCEL_NOTIFICATIONS",
@@ -92,7 +116,6 @@ async function sendScheduleToSW(
 async function sendTestNotification() {
   const reg = await navigator.serviceWorker.ready;
   if (!reg.active) return;
-  // 3 saniye sonra test bildirimi
   reg.active.postMessage({
     type: "SCHEDULE_NOTIFICATIONS",
     notifications: [
@@ -114,10 +137,10 @@ function cancelSWNotifications() {
 interface NotificationManagerProps {
   iftarTime?: string;
   sahurTime?: string;
-  cityName: string;
+  city: City;
 }
 
-const NotificationManager = ({ iftarTime, sahurTime, cityName }: NotificationManagerProps) => {
+const NotificationManager = ({ iftarTime, sahurTime, city }: NotificationManagerProps) => {
   const [pref, setPref] = useState<NotifPref>(loadPref);
   const [showSettings, setShowSettings] = useState(false);
   const [testSent, setTestSent] = useState(false);
@@ -126,14 +149,16 @@ const NotificationManager = ({ iftarTime, sahurTime, cityName }: NotificationMan
     canNotify() ? Notification.permission : "denied"
   );
 
-  // Vakit veya ayar değişince SW'ye yeni zamanlama gönder
   useEffect(() => {
     if (!pref.enabled || permission !== "granted" || !canNotify()) return;
-    sendScheduleToSW(pref, iftarTime, sahurTime, cityName).then((count) => {
-      setScheduled(count ?? 0);
+
+    let cancelled = false;
+    sendScheduleToSW(pref, city, iftarTime, sahurTime).then((count) => {
+      if (!cancelled) setScheduled(count);
     });
-    return () => cancelSWNotifications();
-  }, [pref, permission, iftarTime, sahurTime, cityName]);
+
+    return () => { cancelled = true; };
+  }, [pref, permission, iftarTime, sahurTime, city]);
 
   const handleToggle = async () => {
     if (!canNotify()) return;
@@ -262,14 +287,12 @@ const NotificationManager = ({ iftarTime, sahurTime, cityName }: NotificationMan
                     </select>
                   </div>
 
-                  {/* Status */}
                   <div className="text-[11px] text-cream-muted/60 pt-1">
                     {scheduled > 0
-                      ? `✓ ${scheduled} bildirim zamanlandı`
-                      : "Bugünkü vakitler geçmiş — yarın otomatik zamanlanacak"}
+                      ? `✓ ${scheduled} bildirim zamanlandı (3 gün)`
+                      : "Zamanlanacak vakit bulunamadı"}
                   </div>
 
-                  {/* Test button */}
                   <button
                     onClick={handleTest}
                     disabled={testSent}

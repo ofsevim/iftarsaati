@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, Search, ChevronDown, Moon, Star } from "lucide-react";
+import { MapPin, Search, ChevronDown, Moon, Star, Volume2, VolumeX } from "lucide-react";
 import Imsakiye from "@/components/Imsakiye";
 import DailyContentCard from "@/components/DailyContentCard";
 import NotificationManager from "@/components/NotificationManager";
@@ -63,6 +63,9 @@ const Index = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const azanAudioRef = useRef<HTMLAudioElement | null>(null);
+  const azanPlayedRef = useRef(false);
+  const [azanEnabled, setAzanEnabled] = useState<boolean>(() => safeStorageGet("azanEnabled") === "true");
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -102,6 +105,21 @@ const Index = () => {
     setFavoriteCities(newFavorites);
     safeStorageSet("favoriteCities", JSON.stringify(newFavorites));
   };
+
+  useEffect(() => {
+    if (countdown.passed && countdown.mode === "iftar" && azanEnabled) {
+      if (!azanPlayedRef.current && azanAudioRef.current) {
+        azanPlayedRef.current = true;
+        azanAudioRef.current.play().catch(() => {});
+      }
+    } else if (!countdown.passed) {
+      azanPlayedRef.current = false;
+      if (azanAudioRef.current && !azanAudioRef.current.paused) {
+        azanAudioRef.current.pause();
+        azanAudioRef.current.currentTime = 0;
+      }
+    }
+  }, [countdown.passed, countdown.mode, azanEnabled]);
 
   const loadPrayerTimes = useCallback(async (city: City) => {
     setLoading(true);
@@ -349,10 +367,32 @@ const Index = () => {
             <NotificationManager
               iftarTime={prayerTimes?.Maghrib}
               sahurTime={prayerTimes?.Fajr}
-              cityName={selectedCity.name}
+              city={selectedCity}
             />
+
+            <button
+              onClick={() => {
+                const newVal = !azanEnabled;
+                setAzanEnabled(newVal);
+                safeStorageSet("azanEnabled", String(newVal));
+              }}
+              className="glass-card gold-border p-2.5 flex items-center transition-colors hover:text-gold"
+              aria-label={azanEnabled ? "Ezan sesini kapat" : "Ezan sesini aç"}
+              title={azanEnabled ? "Ezan sesini kapat" : "Ezan sesini aç"}
+            >
+              {azanEnabled
+                ? <Volume2 className="w-4 h-4 text-gold" />
+                : <VolumeX className="w-4 h-4 text-cream-muted" />
+              }
+            </button>
           </div>
         </div>
+
+        <audio
+          ref={azanAudioRef}
+          src="https://cdn.islamic.network/prayer-times/audio/adhan-makkah.mp3"
+          preload="none"
+        />
 
         {/* Countdown */}
         <div className="mb-10 text-center">

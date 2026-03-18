@@ -1,4 +1,4 @@
-const CACHE_NAME = 'iftar-vakti-v5';
+const CACHE_NAME = 'iftar-vakti-v6';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -107,7 +107,7 @@ self.addEventListener('message', (event) => {
 
     notifications.forEach((n) => {
       const delay = n.triggerAt - Date.now();
-      if (delay <= 0 || delay > 24 * 60 * 60 * 1000) return;
+      if (delay <= 0 || delay > 3 * 24 * 60 * 60 * 1000) return;
 
       const timerId = setTimeout(() => {
         self.registration.showNotification(n.title, {

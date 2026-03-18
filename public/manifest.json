@@ -22,13 +22,50 @@
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Bugünün İftar Saati",
+      "short_name": "İftar",
+      "description": "Bugünkü iftar saatine ve geri sayıma hızlı erişim",
+      "url": "/",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Ramazan İmsakiyesi",
+      "short_name": "İmsakiye",
+      "description": "Tüm Ramazan imsakiyesini görüntüle",
+      "url": "/#imsakiye",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "İftar Vakti — Ramazan imsakiyesi ve namaz vakitleri"
     }
   ],
   "categories": ["lifestyle", "utilities"],
