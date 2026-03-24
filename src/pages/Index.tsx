@@ -20,9 +20,9 @@ import {
 } from "@/lib/prayer-api";
 import { normalizeForSearch } from "@/lib/utils";
 
-const BAYRAM_DATE_KEY = "2026-03-20";
+const BAYRAM_DATE_KEY = "2027-03-10";
 
-type CountdownMode = "iftar" | "imsak" | "bayram";
+type CountdownMode = "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha" | "bayram";
 
 function safeStorageGet(key: string): string | null {
   try {
@@ -57,7 +57,7 @@ const Index = () => {
     seconds: number;
     passed: boolean;
     mode: CountdownMode;
-  }>({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "iftar" });
+  }>({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "Maghrib" });
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -107,7 +107,7 @@ const Index = () => {
   };
 
   useEffect(() => {
-    if (countdown.passed && countdown.mode === "iftar" && azanEnabled) {
+    if (countdown.passed && countdown.mode === "Maghrib" && azanEnabled) {
       if (!azanPlayedRef.current && azanAudioRef.current) {
         azanPlayedRef.current = true;
         azanAudioRef.current.play().catch(() => {});
@@ -176,7 +176,50 @@ const Index = () => {
         return;
       }
 
-      setCountdown(getTimeUntilIftarThenImsak(prayerTimes.Maghrib, tomorrowFajr ?? undefined, { todayFajrTime: prayerTimes.Fajr }));
+      // Genel süre hesabı "sonraki vakte kalan süre" olarak ayarlandı:
+      const parseTimeOnDate = (base: Date, time: string) => {
+        const [h, m] = time.split(":").map(Number);
+        const d = new Date(base);
+        d.setHours(h, m, 0, 0);
+        return d;
+      };
+
+      const prayers: { name: CountdownMode; time: Date }[] = [
+        { name: "Fajr", time: parseTimeOnDate(now, prayerTimes.Fajr) },
+        { name: "Sunrise", time: parseTimeOnDate(now, prayerTimes.Sunrise) },
+        { name: "Dhuhr", time: parseTimeOnDate(now, prayerTimes.Dhuhr) },
+        { name: "Asr", time: parseTimeOnDate(now, prayerTimes.Asr) },
+        { name: "Maghrib", time: parseTimeOnDate(now, prayerTimes.Maghrib) },
+        { name: "Isha", time: parseTimeOnDate(now, prayerTimes.Isha) },
+      ];
+
+      let nextPrayer = prayers.find(p => p.time.getTime() > now.getTime());
+
+      if (!nextPrayer) {
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const targetTime = tomorrowFajr
+          ? parseTimeOnDate(tomorrow, tomorrowFajr)
+          : new Date(now.getTime() + 12 * 60 * 60 * 1000); 
+        nextPrayer = { name: "Fajr", time: targetTime };
+      }
+
+      const maghribTime = parseTimeOnDate(now, prayerTimes.Maghrib);
+      const maghribEnd = new Date(maghribTime.getTime() + 4 * 60 * 1000); 
+
+      if (now.getTime() >= maghribTime.getTime() && now.getTime() <= maghribEnd.getTime()) {
+        setCountdown({ hours: 0, minutes: 0, seconds: 0, passed: true, mode: "Maghrib" });
+        return;
+      }
+
+      const diff = nextPrayer.time.getTime() - now.getTime();
+      setCountdown({
+        hours: Math.floor(diff / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+        mode: nextPrayer.name,
+        passed: false
+      });
     };
 
     const interval = setInterval(() => {
@@ -399,18 +442,28 @@ const Index = () => {
           <h2 className="font-display text-xl md:text-2xl text-gold-light mb-6">
             {countdown.mode === "bayram"
               ? (countdown.passed ? "Bayram Günü" : "Bayramın Bitimine Kalan Süre")
-              : countdown.passed
+              : countdown.passed && countdown.mode === "Maghrib"
                 ? "İftar vakti"
-                : countdown.mode === "imsak"
-                  ? "Sahurun Bitimine Kalan Süre"
-                  : "İftara Kalan Süre"}
+                : countdown.mode === "Fajr"
+                  ? "İmsak (Sahur) Vaktine Kalan Süre"
+                  : countdown.mode === "Sunrise"
+                    ? "Güneşin Doğmasına Kalan Süre"
+                    : countdown.mode === "Dhuhr"
+                      ? "Öğle Vaktine Kalan Süre"
+                      : countdown.mode === "Asr"
+                        ? "İkindi Vaktine Kalan Süre"
+                        : countdown.mode === "Maghrib"
+                          ? "Akşam (İftar) Vaktine Kalan Süre"
+                          : countdown.mode === "Isha"
+                            ? "Yatsı Vaktine Kalan Süre"
+                            : "Sonraki Vakte Kalan Süre"}
           </h2>
 
           {loading ? (
             <div className="text-cream-muted animate-pulse">Vakitler yükleniyor...</div>
           ) : !prayerTimes ? (
             <div className="text-cream-muted">Vakit verileri şu an alınamadı.</div>
-          ) : countdown.passed ? (
+          ) : countdown.passed && countdown.mode === "Maghrib" ? (
             <div className="text-2xl md:text-3xl font-display text-gold">
               {countdown.mode === "bayram" ? "Bayramınız Mübarek Olsun!" : "Hayırlı İftarlar! 🌙"}
             </div>

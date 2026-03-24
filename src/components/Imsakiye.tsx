@@ -7,12 +7,12 @@ interface ImsakiyeProps {
   city: City;
 }
 
-const RAMADAN_START = new Date(2026, 1, 18); // Feb 18, 2026
-const RAMADAN_END = new Date(2026, 2, 20);   // Mar 20, 2026 (Bayram dahil)
+const RAMADAN_START = new Date(2027, 1, 8); // Feb 8, 2027
+const RAMADAN_END = new Date(2027, 2, 10);   // Mar 10, 2027 (Bayram dahil)
 
 // Kadir Gecesi: 27. gece (Ramazan'ın 27. günü = index 26)
 const KADIR_GECESI_INDEX = 26;
-// Ramazan Bayramı 1. gün: 20 Mart 2026 (index 30, 0-indexed)
+// Ramazan Bayramı 1. gün: 10 Mart 2027 (index 30, 0-indexed)
 const BAYRAM_INDEX = 30;
 
 const Imsakiye = ({ city }: ImsakiyeProps) => {
@@ -58,7 +58,7 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
   return (
     <div className="w-full max-w-4xl mt-12 mb-8">
       <h3 className="font-display text-xl md:text-2xl text-gold text-center mb-6">
-        {city.name} — Ramazan İmsakiyesi 2026
+        {city.name} — Ramazan İmsakiyesi 2027
       </h3>
 
       {loading ? (
