@@ -8,12 +8,12 @@ interface ImsakiyeProps {
 }
 
 const RAMADAN_START = new Date(2027, 1, 8); // Feb 8, 2027
-const RAMADAN_END = new Date(2027, 2, 10);   // Mar 10, 2027 (Bayram dahil)
+const RAMADAN_END = new Date(2027, 2, 9); // Mar 9, 2027 (Ramazan + Bayram 1. gun)
 
 // Kadir Gecesi: 27. gece (Ramazan'ın 27. günü = index 26)
-const KADIR_GECESI_INDEX = 26;
+const KADIR_GECESI_DATE_KEY = "2027-03-05";
 // Ramazan Bayramı 1. gün: 10 Mart 2027 (index 30, 0-indexed)
-const BAYRAM_INDEX = 30;
+const BAYRAM_DATE_KEY = "2027-03-09";
 
 const Imsakiye = ({ city }: ImsakiyeProps) => {
   const [days, setDays] = useState<DailyPrayerTimes[]>([]);
@@ -83,8 +83,8 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
             <tbody>
               {days.map((day, i) => {
                 const isToday = day.dateKey === todayStr;
-                const isKadirGecesi = i === KADIR_GECESI_INDEX;
-                const isBayram = i === BAYRAM_INDEX;
+                const isKadirGecesi = day.dateKey === KADIR_GECESI_DATE_KEY;
+                const isBayram = day.dateKey === BAYRAM_DATE_KEY;
 
                 const dayLabel = String(i + 1);
                 const dateLabel = day.dateLabel;

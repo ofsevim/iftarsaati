@@ -20,7 +20,7 @@ import {
 } from "@/lib/prayer-api";
 import { normalizeForSearch } from "@/lib/utils";
 
-const BAYRAM_DATE_KEY = "2027-03-10";
+const BAYRAM_DATE_KEY = "2027-03-09";
 
 type CountdownMode = "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha" | "bayram";
 
