@@ -491,7 +491,7 @@ const Index = () => {
         {prayerTimes && (
           <div className="w-full max-w-3xl mb-10">
             <h3 className="font-display text-lg text-gold-light text-center mb-4">
-              {selectedCity.name} — Namaz Vakitleri
+              {selectedCity.name} — {new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" })} — Namaz Vakitleri
             </h3>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
               {(Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[]).map((key) => (
