@@ -15,12 +15,10 @@ import {
 import {
   fetchPrayerTimes,
   fetchPrayerTimesForDate,
+  fetchUpcomingRamadanPeriod,
   findNearestCity,
-  getTimeUntilIftarThenImsak,
 } from "@/lib/prayer-api";
 import { normalizeForSearch } from "@/lib/utils";
-
-const BAYRAM_DATE_KEY = "2027-03-09";
 
 type CountdownMode = "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha" | "bayram";
 
@@ -51,6 +49,7 @@ const Index = () => {
   });
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [tomorrowFajr, setTomorrowFajr] = useState<string | null>(null);
+  const [bayramDateKey, setBayramDateKey] = useState<string | null>(null);
   const [countdown, setCountdown] = useState<{
     hours: number;
     minutes: number;
@@ -146,6 +145,22 @@ const Index = () => {
   }, [selectedCity, loadPrayerTimes]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadReligiousDates = async () => {
+      const period = await fetchUpcomingRamadanPeriod(selectedCity, new Date());
+      if (!cancelled) {
+        setBayramDateKey(period?.bayramDateKey ?? null);
+      }
+    };
+
+    loadReligiousDates();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCity]);
+
+  useEffect(() => {
     if (!prayerTimes) return;
 
     const getDateKey = (date: Date) =>
@@ -170,7 +185,7 @@ const Index = () => {
       const now = new Date();
 
       // Bayram gününde özel sayaç: günün bitimine kadar geri sayım.
-      if (getDateKey(now) === BAYRAM_DATE_KEY) {
+      if (bayramDateKey && getDateKey(now) === bayramDateKey) {
         const bayramCountdown = getTimeUntilEndOfDay(now);
         setCountdown({ ...bayramCountdown, mode: "bayram" });
         return;
@@ -228,7 +243,7 @@ const Index = () => {
     }, 1000);
     updateCountdown();
     return () => clearInterval(interval);
-  }, [prayerTimes, tomorrowFajr]);
+  }, [prayerTimes, tomorrowFajr, bayramDateKey]);
 
   const handleLocate = () => {
     if (!navigator.geolocation) return;

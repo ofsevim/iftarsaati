@@ -4,6 +4,19 @@ export interface DailyPrayerTimes {
   dateKey: string;   // YYYY-MM-DD
   dateLabel: string; // e.g. "18 Şubat"
   times: PrayerTimes;
+  hijri?: {
+    year: number;
+    monthNumber: number;
+    monthName: string;
+    day: number;
+  };
+}
+
+export interface RamadanPeriod {
+  startDateKey: string;
+  bayramDateKey: string;
+  kadirDateKey: string | null;
+  days: DailyPrayerTimes[];
 }
 
 const MONTH_NAMES = [
@@ -12,14 +25,6 @@ const MONTH_NAMES = [
 ];
 
 const PRAYER_API_TIMEOUT = 15000; // 15 saniye — yavaş mobil bağlantılar için
-const FALLBACK_PRAYER_TIMES: PrayerTimes = {
-  Fajr: "05:40",
-  Sunrise: "07:05",
-  Dhuhr: "13:15",
-  Asr: "16:35",
-  Maghrib: "19:10",
-  Isha: "20:30",
-};
 
 /**
  * localStorage'a namaz vakitlerini cache'ler (API erişilmezse fallback olarak kullanılır).
@@ -39,6 +44,14 @@ function setCachedData<T>(key: string, data: T): void {
   try {
     localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() }));
   } catch { /* quota aşılmış olabilir */ }
+}
+
+function formatDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function addMonths(date: Date, months: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + months, 1);
 }
 
 /**
@@ -191,6 +204,12 @@ export async function fetchMonthlyPrayerTimes(
             Maghrib: t.Maghrib.split(" ")[0],
             Isha: t.Isha.split(" ")[0],
           },
+          hijri: {
+            year: Number(dayData?.date?.hijri?.year),
+            monthNumber: Number(dayData?.date?.hijri?.month?.number),
+            monthName: String(dayData?.date?.hijri?.month?.en ?? ""),
+            day: Number(dayData?.date?.hijri?.day),
+          },
         });
       }
     } catch (e) {
@@ -201,7 +220,7 @@ export async function fetchMonthlyPrayerTimes(
   results.sort((a, b) => a.dateKey.localeCompare(b.dateKey));
 
   // Cache'leme: veri varsa sakla, yoksa eski cache'den dön
-  const cacheKey = `monthly_${city.name}`;
+  const cacheKey = `monthly_${city.name}_${formatDateKey(start)}_${formatDateKey(end)}`;
   if (results.length > 0) {
     setCachedData(cacheKey, results);
   } else {
@@ -213,6 +232,72 @@ export async function fetchMonthlyPrayerTimes(
   }
 
   return results;
+}
+
+export async function fetchUpcomingRamadanPeriod(
+  city: City,
+  referenceDate: Date = new Date()
+): Promise<RamadanPeriod | null> {
+  const scanStart = addMonths(referenceDate, -2);
+  const scanEnd = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 19, 0);
+  const days = await fetchMonthlyPrayerTimes(city, scanStart, scanEnd);
+
+  if (!days.length) {
+    return null;
+  }
+
+  const periods: RamadanPeriod[] = [];
+
+  for (let i = 0; i < days.length; i++) {
+    const startDay = days[i];
+    if (startDay.hijri?.monthNumber !== 9 || startDay.hijri.day !== 1) {
+      continue;
+    }
+
+    const periodDays: DailyPrayerTimes[] = [];
+    let bayramDateKey: string | null = null;
+    let kadirDateKey: string | null = null;
+
+    for (let j = i; j < days.length; j++) {
+      const currentDay = days[j];
+      const hijri = currentDay.hijri;
+
+      if (!hijri) {
+        continue;
+      }
+
+      if (hijri.monthNumber === 9) {
+        periodDays.push(currentDay);
+        if (hijri.day === 27) {
+          kadirDateKey = currentDay.dateKey;
+        }
+        continue;
+      }
+
+      if (hijri.monthNumber === 10 && hijri.day === 1) {
+        periodDays.push(currentDay);
+        bayramDateKey = currentDay.dateKey;
+      }
+
+      break;
+    }
+
+    if (periodDays.length > 0 && bayramDateKey) {
+      periods.push({
+        startDateKey: startDay.dateKey,
+        bayramDateKey,
+        kadirDateKey,
+        days: periodDays,
+      });
+    }
+  }
+
+  if (!periods.length) {
+    return null;
+  }
+
+  const referenceKey = formatDateKey(referenceDate);
+  return periods.find((period) => period.bayramDateKey >= referenceKey) ?? periods[periods.length - 1];
 }
 
 export async function fetchPrayerTimes(city: City): Promise<PrayerTimes | null> {
@@ -302,7 +387,7 @@ export async function fetchPrayerTimesForDate(
       return cached;
     }
     // Son çare: uygulama tamamen boş kalmasın diye yerleşik fallback
-    return FALLBACK_PRAYER_TIMES;
+    return null;
   }
 }
 

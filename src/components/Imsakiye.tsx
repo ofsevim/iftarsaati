@@ -1,77 +1,94 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Candy } from "lucide-react";
 import { City, PRAYER_LABELS, type PrayerTimes } from "@/data/cities";
-import { fetchMonthlyPrayerTimes, type DailyPrayerTimes } from "@/lib/prayer-api";
+import {
+  fetchUpcomingRamadanPeriod,
+  type DailyPrayerTimes,
+  type RamadanPeriod,
+} from "@/lib/prayer-api";
 
 interface ImsakiyeProps {
   city: City;
 }
 
-const RAMADAN_START = new Date(2027, 1, 8); // Feb 8, 2027
-const RAMADAN_END = new Date(2027, 2, 9); // Mar 9, 2027 (Ramazan + Bayram 1. gun)
-
-// Kadir Gecesi: 27. gece (Ramazan'ın 27. günü = index 26)
-const KADIR_GECESI_DATE_KEY = "2027-03-05";
-// Ramazan Bayramı 1. gün: 10 Mart 2027 (index 30, 0-indexed)
-const BAYRAM_DATE_KEY = "2027-03-09";
+function formatDateRangeLabel(period: RamadanPeriod): string {
+  const [startYear, startMonth, startDay] = period.startDateKey.split("-").map(Number);
+  const [endYear, endMonth, endDay] = period.bayramDateKey.split("-").map(Number);
+  const start = new Date(startYear, startMonth - 1, startDay);
+  const end = new Date(endYear, endMonth - 1, endDay);
+  const startLabel = start.toLocaleDateString("tr-TR", { day: "numeric", month: "long" });
+  const endLabel = end.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+  return `${startLabel} - ${endLabel}`;
+}
 
 const Imsakiye = ({ city }: ImsakiyeProps) => {
-  const [days, setDays] = useState<DailyPrayerTimes[]>([]);
+  const [period, setPeriod] = useState<RamadanPeriod | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+
     const load = async () => {
       setLoading(true);
-      const data = await fetchMonthlyPrayerTimes(city, RAMADAN_START, RAMADAN_END);
+      const data = await fetchUpcomingRamadanPeriod(city, new Date());
       if (!cancelled) {
-        setDays(data);
+        setPeriod(data);
         setLoading(false);
       }
     };
+
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [city]);
 
-  const calculateBayramTime = (sunrise: string) => {
-    if (!sunrise) return "";
-    const [h, m] = sunrise.split(":").map(Number);
-    // Diyanet Ankara 07:23 verisini yakalamak için (Güneş 06:45 + 38dk) güncellendi
-    const totalMinutes = h * 60 + m + 38;
-    const bh = Math.floor(totalMinutes / 60);
-    const bm = totalMinutes % 60;
-    return `${String(bh).padStart(2, "0")}:${String(bm).padStart(2, "0")}`;
-  };
+  const days = period?.days ?? [];
 
-  const getDayName = (dateKey: string) => {
-    const [y, m, d] = dateKey.split('-').map(Number);
-    const date = new Date(y, m - 1, d);
-    const days = ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"];
-    return days[date.getDay()];
-  };
-
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const todayStr = useMemo(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  }, []);
 
   const prayerKeys: (keyof PrayerTimes)[] = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
 
+  const calculateBayramTime = (sunrise: string) => {
+    const [h, m] = sunrise.split(":").map(Number);
+    const totalMinutes = h * 60 + m + 38;
+    return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`;
+  };
+
+  const getDayName = (dateKey: string) => {
+    const [y, m, d] = dateKey.split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    return ["Pazar", "Pazartesi", "Sali", "Carsamba", "Persembe", "Cuma", "Cumartesi"][date.getDay()];
+  };
+
   return (
     <div className="w-full max-w-4xl mt-12 mb-8">
-      <h3 className="font-display text-xl md:text-2xl text-gold text-center mb-6">
-        {city.name} — Ramazan İmsakiyesi 2027
+      <h3 className="font-display text-xl md:text-2xl text-gold text-center mb-2">
+        {city.name} - Ramazan Imsakiyesi
       </h3>
+      {period && (
+        <p className="text-center text-sm text-cream-muted mb-6">
+          {formatDateRangeLabel(period)}
+        </p>
+      )}
 
       {loading ? (
         <div className="text-center text-cream-muted animate-pulse py-8">
-          İmsakiye yükleniyor...
+          Imsakiye yukleniyor...
+        </div>
+      ) : !period || days.length === 0 ? (
+        <div className="glass-card gold-border text-center text-cream-muted py-8 px-4">
+          Bu sehir icin Ramazan takvimi su an alinamadi.
         </div>
       ) : (
         <div className="glass-card gold-border overflow-hidden">
-          {/* Tablo — mobilde küçük font+padding ile tüm vakitler sığıyor */}
           <table className="w-full text-[10px] sm:text-xs md:text-sm">
             <thead>
               <tr className="border-b" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
-                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">Gün</th>
+                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">Gun</th>
                 <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">Tarih</th>
                 {prayerKeys.map((key) => (
                   <th key={key} className="px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-center text-gold-light font-display font-medium">
@@ -81,13 +98,10 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
               </tr>
             </thead>
             <tbody>
-              {days.map((day, i) => {
+              {days.map((day: DailyPrayerTimes, i) => {
                 const isToday = day.dateKey === todayStr;
-                const isKadirGecesi = day.dateKey === KADIR_GECESI_DATE_KEY;
-                const isBayram = day.dateKey === BAYRAM_DATE_KEY;
-
-                const dayLabel = String(i + 1);
-                const dateLabel = day.dateLabel;
+                const isKadirGecesi = day.dateKey === period.kadirDateKey;
+                const isBayram = day.dateKey === period.bayramDateKey;
 
                 const rowColor = isKadirGecesi
                   ? "bg-[hsla(280,60%,50%,0.12)]"
@@ -100,10 +114,11 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                         : "bg-[hsla(220,30%,15%,0.3)]";
 
                 const labelColor = isToday ? "text-gold" : (isKadirGecesi || isBayram) ? "text-gold-light" : "text-cream-muted";
-
-                const cellColor = () =>
-                  isBayram ? "text-gold font-bold" :
-                    isToday ? "text-gold font-semibold" : "text-cream";
+                const cellColor = isBayram
+                  ? "text-gold font-bold"
+                  : isToday
+                    ? "text-gold font-semibold"
+                    : "text-cream";
 
                 return (
                   <tr
@@ -114,13 +129,13 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                     {isBayram ? (
                       <td colSpan={8} className="px-3 py-3 text-center">
                         <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6">
-                          <div className="flex items-center gap-2.5 text-gold-light font-display font-bold text-base md:text-xl transform transition-transform hover:scale-105 duration-300">
+                          <div className="flex items-center gap-2.5 text-gold-light font-display font-bold text-base md:text-xl transition-transform duration-300 hover:scale-105">
                             <Candy className="h-5 w-5 md:h-6 md:w-6" />
-                            <span>{dateLabel} {getDayName(day.dateKey)} — Ramazan Bayramı</span>
+                            <span>{day.dateLabel} {getDayName(day.dateKey)} - Ramazan Bayrami</span>
                           </div>
                           <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gold/15 border border-gold/40 rounded-full animate-pulse-gold shadow-[0_0_15px_rgba(212,175,55,0.1)]">
                             <span className="text-gold font-bold text-sm md:text-base">
-                              🕌 BAYRAM NAMAZI: {calculateBayramTime(day.times.Sunrise)}
+                              Bayram Namazi: {calculateBayramTime(day.times.Sunrise)}
                             </span>
                           </div>
                         </div>
@@ -128,18 +143,18 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
                     ) : (
                       <>
                         <td className={`px-1 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 font-semibold ${labelColor}`}>
-                          {dayLabel}
+                          {String(i + 1)}
                         </td>
                         <td className={`px-1 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 whitespace-nowrap ${labelColor}`}>
                           <div className="flex flex-col leading-none">
-                            <span className="mb-0.5">{dateLabel}</span>
+                            <span className="mb-0.5">{day.dateLabel}</span>
                             <span className="text-[10px] md:text-[11px] opacity-60 font-normal">{getDayName(day.dateKey)}</span>
                           </div>
                         </td>
                         {prayerKeys.map((key) => (
                           <td
                             key={key}
-                            className={`px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 text-center font-mono ${cellColor()}`}
+                            className={`px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-2.5 text-center font-mono ${cellColor}`}
                           >
                             {day.times[key]}
                           </td>
