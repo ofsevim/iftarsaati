@@ -82,6 +82,9 @@ async function buildNotifications(
 
     const keys = Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[];
     for (const key of keys) {
+      const mins = pref.minutes[key];
+      if (mins === -1) continue; // Bildirim kapalıysa bu vakti atla
+
       const timeStr = times[key];
       if (!timeStr) continue;
 
@@ -89,7 +92,6 @@ async function buildNotifications(
       const prayerDate = new Date(dayDate);
       prayerDate.setHours(h, m, 0, 0);
 
-      const mins = pref.minutes[key];
       const triggerAt = prayerDate.getTime() - mins * 60 * 1000;
 
       if (triggerAt > now.getTime()) {
@@ -305,20 +307,17 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                         className="w-full bg-slate-900 border border-gold/30 rounded-lg px-2 py-1.5 text-sm text-cream outline-none cursor-pointer"
                         style={{ colorScheme: 'dark' }}
                       >
-                        {[5, 10, 15, 30, 45, 60].map((v) => (
+                        <option value={-1} className="bg-slate-900 text-cream">Bildirim Kapalı</option>
+                        {[0, 5, 10, 15, 30, 45, 60].map((v) => (
                           <option key={v} value={v} className="bg-slate-900 text-cream">
-                            {v} dakika
+                            {v === 0 ? "Tam vaktinde" : `${v} dakika önce`}
                           </option>
                         ))}
                       </select>
                     </div>
                   ))}
 
-                  <div className="text-[11px] text-cream-muted/60 pt-1">
-                    {scheduled > 0
-                      ? `✓ ${scheduled} bildirim zamanlandı (3 gün)`
-                      : "Zamanlanacak vakit bulunamadı"}
-                  </div>
+
 
                   <button
                     onClick={handleTest}
