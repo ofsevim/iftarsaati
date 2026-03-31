@@ -1,7 +1,7 @@
 {
-  "name": "İftar Vakti - Ramazan İmsakiyesi",
-  "short_name": "İftar Vakti",
-  "description": "Türkiye için Ramazan imsakiyesi ve namaz vakitleri uygulaması",
+  "name": "Vakt-i Şerif - 2026 Namaz Vakitleri",
+  "short_name": "Vakt-i Şerif",
+  "description": "Vakt-i Şerif: 81 il için güncel namaz vakitleri, iftar saati ve Ramazan imsakiyesi",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1419",
@@ -65,7 +65,7 @@
       "sizes": "1200x630",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "İftar Vakti — Ramazan imsakiyesi ve namaz vakitleri"
+      "label": "Vakt-i Şerif — Namaz vakitleri ve Ramazan imsakiyesi"
     }
   ],
   "categories": ["lifestyle", "utilities"],

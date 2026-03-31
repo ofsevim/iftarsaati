@@ -335,12 +335,12 @@ const Index = () => {
           <div className="flex items-center justify-center gap-3 mb-3">
             <Moon className="w-8 h-8 text-gold animate-pulse-gold" />
             <h1 className="text-4xl md:text-5xl font-display font-bold text-gold">
-              İftar Vakti
+              Vakt-i Şerif
             </h1>
             <Moon className="w-8 h-8 text-gold animate-pulse-gold" />
           </div>
           <p className="text-cream-muted text-sm md:text-base">
-            Ramazan-ı Şerif'iniz mübarek olsun
+            {isRamadan ? "Ramazan-ı Şerif'iniz mübarek olsun" : "Namaz Vakitleri & Güncel İmsakiye"}
           </p>
         </div>
 
