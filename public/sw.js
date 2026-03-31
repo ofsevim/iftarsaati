@@ -118,6 +118,13 @@ self.addEventListener('message', (event) => {
           vibrate: [200, 100, 200],
           requireInteraction: true,
         });
+        
+        // Site açıkken ses çalması için istemcilere (clients) haber ver
+        self.clients.matchAll({ type: 'window' }).then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: 'PLAY_SOUND', title: n.title });
+          });
+        });
       }, delay);
 
       self._notifTimers.push(timerId);

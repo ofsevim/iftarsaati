@@ -184,7 +184,21 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     });
 
     return () => { cancelled = true; };
-  }, [pref, permission, prayerTimes, city]);
+  }, [pref, permission, prayerTimes, city, isRamadan]);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    const handler = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'PLAY_SOUND') {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.play().catch(() => {});
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, []);
 
   const handleToggle = async () => {
     if (!canNotify()) return;
@@ -288,10 +302,11 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                       <select
                         value={pref.minutes[key]}
                         onChange={(e) => updateMinutes(key, Number(e.target.value))}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-cream outline-none"
+                        className="w-full bg-slate-900 border border-gold/30 rounded-lg px-2 py-1.5 text-sm text-cream outline-none cursor-pointer"
+                        style={{ colorScheme: 'dark' }}
                       >
                         {[5, 10, 15, 30, 45, 60].map((v) => (
-                          <option key={v} value={v}>
+                          <option key={v} value={v} className="bg-slate-900 text-cream">
                             {v} dakika
                           </option>
                         ))}
