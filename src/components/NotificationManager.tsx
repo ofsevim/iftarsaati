@@ -193,8 +193,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
 
     const handler = (event: MessageEvent) => {
       if (event.data && event.data.type === 'PLAY_SOUND') {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        audio.play().catch(() => {});
+        playSound();
       }
     };
 
@@ -225,7 +224,16 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     }
   };
 
+  const playSound = () => {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    audio.play().catch((err) => {
+      console.warn("Ses çalma hatası. Etkileşim gerekiyor:", err);
+    });
+  };
+
   const handleTest = () => {
+    // Hem sesi hemen çal, hem bildirimi zamanla
+    playSound();
     sendTestNotification();
     setTestSent(true);
     setTimeout(() => setTestSent(false), 5000);
