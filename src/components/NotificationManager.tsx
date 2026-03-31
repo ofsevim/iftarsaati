@@ -1,24 +1,44 @@
 import { useState, useEffect } from "react";
 import { Bell, BellOff, X, BellRing } from "lucide-react";
 import { fetchPrayerTimesForDate } from "@/lib/prayer-api";
-import type { City } from "@/data/cities";
+import type { City, PrayerTimes } from "@/data/cities";
+import { PRAYER_LABELS } from "@/data/cities";
 
 type NotifPref = {
   enabled: boolean;
-  iftarMinutes: number;
-  sahurMinutes: number;
+  minutes: Record<keyof PrayerTimes, number>;
 };
 
 const DEFAULT_PREF: NotifPref = {
   enabled: false,
-  iftarMinutes: 30,
-  sahurMinutes: 30,
+  minutes: {
+    Fajr: 30,
+    Sunrise: 15,
+    Dhuhr: 15,
+    Asr: 15,
+    Maghrib: 30,
+    Isha: 15,
+  },
 };
 
 function loadPref(): NotifPref {
   try {
     const raw = localStorage.getItem("notif-pref");
-    if (raw) return { ...DEFAULT_PREF, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.iftarMinutes !== undefined) {
+        return {
+          ...DEFAULT_PREF,
+          enabled: parsed.enabled,
+          minutes: {
+            ...DEFAULT_PREF.minutes,
+            Maghrib: parsed.iftarMinutes,
+            Fajr: parsed.sahurMinutes,
+          }
+        };
+      }
+      return { ...DEFAULT_PREF, ...parsed };
+    }
   } catch {}
   return DEFAULT_PREF;
 }
@@ -36,8 +56,8 @@ function canNotify(): boolean {
 async function buildNotifications(
   pref: NotifPref,
   city: City,
-  todayIftar: string | undefined,
-  todaySahur: string | undefined
+  todayTimes: PrayerTimes | undefined,
+  isRamadan: boolean | undefined
 ): Promise<{ title: string; body: string; triggerAt: number }[]> {
   const notifications: { title: string; body: string; triggerAt: number }[] = [];
   const now = new Date();
@@ -46,45 +66,51 @@ async function buildNotifications(
     const dayDate = new Date(now);
     dayDate.setDate(now.getDate() + i);
 
-    let iftarTime: string | undefined;
-    let sahurTime: string | undefined;
+    let times: PrayerTimes | undefined | null;
 
     if (i === 0) {
-      iftarTime = todayIftar;
-      sahurTime = todaySahur;
+      times = todayTimes;
     } else {
       try {
-        const times = await fetchPrayerTimesForDate(city, dayDate);
-        iftarTime = times?.Maghrib;
-        sahurTime = times?.Fajr;
+        times = await fetchPrayerTimesForDate(city, dayDate);
       } catch {
         continue;
       }
     }
 
-    if (iftarTime) {
-      const [h, m] = iftarTime.split(":").map(Number);
-      const iftarDate = new Date(dayDate);
-      iftarDate.setHours(h, m, 0, 0);
-      const triggerAt = iftarDate.getTime() - pref.iftarMinutes * 60 * 1000;
-      if (triggerAt > now.getTime()) {
-        notifications.push({
-          title: "🌙 İftar Yaklaşıyor",
-          body: `${city.name} için iftara ${pref.iftarMinutes} dakika kaldı!`,
-          triggerAt,
-        });
-      }
-    }
+    if (!times) continue;
 
-    if (sahurTime) {
-      const [h, m] = sahurTime.split(":").map(Number);
-      const sahurDate = new Date(dayDate);
-      sahurDate.setHours(h, m, 0, 0);
-      const triggerAt = sahurDate.getTime() - pref.sahurMinutes * 60 * 1000;
+    const keys = Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[];
+    for (const key of keys) {
+      const timeStr = times[key];
+      if (!timeStr) continue;
+
+      const [h, m] = timeStr.split(":").map(Number);
+      const prayerDate = new Date(dayDate);
+      prayerDate.setHours(h, m, 0, 0);
+
+      const mins = pref.minutes[key];
+      const triggerAt = prayerDate.getTime() - mins * 60 * 1000;
+
       if (triggerAt > now.getTime()) {
+        const isIftar = key === "Maghrib";
+        const isSahur = key === "Fajr";
+        
+        const label = isIftar && isRamadan ? "İftar" : isSahur && isRamadan ? "Sahur" : PRAYER_LABELS[key];
+        let title = `${label} Vakti`;
+        let body = `${city.name} için ${label.toLowerCase()} vaktine ${mins} dakika kaldı!`;
+
+        if (isIftar && isRamadan) {
+          title = "🌙 İftar Yaklaşıyor";
+          body = `${city.name} için iftara ${mins} dakika kaldı!`;
+        } else if (isSahur && isRamadan) {
+          title = "🍽️ Sahur Vakti";
+          body = `${city.name} için sahura (imsak) ${mins} dakika kaldı!`;
+        }
+
         notifications.push({
-          title: "🍽️ Sahur Vakti",
-          body: `${city.name} için sahura ${pref.sahurMinutes} dakika kaldı!`,
+          title,
+          body,
           triggerAt,
         });
       }
@@ -97,13 +123,13 @@ async function buildNotifications(
 async function sendScheduleToSW(
   pref: NotifPref,
   city: City,
-  iftarTime: string | undefined,
-  sahurTime: string | undefined
+  todayTimes: PrayerTimes | undefined,
+  isRamadan: boolean | undefined
 ): Promise<number> {
   const reg = await navigator.serviceWorker.ready;
   if (!reg.active) return 0;
 
-  const notifications = await buildNotifications(pref, city, iftarTime, sahurTime);
+  const notifications = await buildNotifications(pref, city, todayTimes, isRamadan);
 
   reg.active.postMessage({
     type: notifications.length > 0 ? "SCHEDULE_NOTIFICATIONS" : "CANCEL_NOTIFICATIONS",
@@ -135,12 +161,12 @@ function cancelSWNotifications() {
 }
 
 interface NotificationManagerProps {
-  iftarTime?: string;
-  sahurTime?: string;
+  prayerTimes?: PrayerTimes;
   city: City;
+  isRamadan?: boolean;
 }
 
-const NotificationManager = ({ iftarTime, sahurTime, city }: NotificationManagerProps) => {
+const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManagerProps) => {
   const [pref, setPref] = useState<NotifPref>(loadPref);
   const [showSettings, setShowSettings] = useState(false);
   const [testSent, setTestSent] = useState(false);
@@ -153,12 +179,12 @@ const NotificationManager = ({ iftarTime, sahurTime, city }: NotificationManager
     if (!pref.enabled || permission !== "granted" || !canNotify()) return;
 
     let cancelled = false;
-    sendScheduleToSW(pref, city, iftarTime, sahurTime).then((count) => {
+    sendScheduleToSW(pref, city, prayerTimes, isRamadan).then((count) => {
       if (!cancelled) setScheduled(count);
     });
 
     return () => { cancelled = true; };
-  }, [pref, permission, iftarTime, sahurTime, city]);
+  }, [pref, permission, prayerTimes, city]);
 
   const handleToggle = async () => {
     if (!canNotify()) return;
@@ -189,10 +215,10 @@ const NotificationManager = ({ iftarTime, sahurTime, city }: NotificationManager
     setTimeout(() => setTestSent(false), 5000);
   };
 
-  const updateMinutes = (type: "iftar" | "sahur", value: number) => {
+  const updateMinutes = (key: keyof PrayerTimes, value: number) => {
     const newPref = {
       ...pref,
-      [type === "iftar" ? "iftarMinutes" : "sahurMinutes"]: value,
+      minutes: { ...pref.minutes, [key]: value },
     };
     setPref(newPref);
     savePref(newPref);
@@ -253,39 +279,25 @@ const NotificationManager = ({ iftarTime, sahurTime, city }: NotificationManager
               </button>
 
               {pref.enabled && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs text-cream-muted block mb-1">
-                      İftardan önce (dk)
-                    </label>
-                    <select
-                      value={pref.iftarMinutes}
-                      onChange={(e) => updateMinutes("iftar", Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-cream outline-none"
-                    >
-                      {[5, 10, 15, 30, 45, 60].map((v) => (
-                        <option key={v} value={v}>
-                          {v} dakika
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-cream-muted block mb-1">
-                      Sahurdan önce (dk)
-                    </label>
-                    <select
-                      value={pref.sahurMinutes}
-                      onChange={(e) => updateMinutes("sahur", Number(e.target.value))}
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-cream outline-none"
-                    >
-                      {[5, 10, 15, 30, 45, 60].map((v) => (
-                        <option key={v} value={v}>
-                          {v} dakika
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
+                  {(Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[]).map((key) => (
+                    <div key={key}>
+                      <label className="text-xs text-cream-muted block mb-1">
+                        {key === "Maghrib" && isRamadan ? "İftardan önce (dk)" : key === "Fajr" && isRamadan ? "Sahurdan önce (dk)" : `${PRAYER_LABELS[key]} Vaktinden önce (dk)`}
+                      </label>
+                      <select
+                        value={pref.minutes[key]}
+                        onChange={(e) => updateMinutes(key, Number(e.target.value))}
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-cream outline-none"
+                      >
+                        {[5, 10, 15, 30, 45, 60].map((v) => (
+                          <option key={v} value={v}>
+                            {v} dakika
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
 
                   <div className="text-[11px] text-cream-muted/60 pt-1">
                     {scheduled > 0

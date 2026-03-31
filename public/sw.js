@@ -114,7 +114,7 @@ self.addEventListener('message', (event) => {
           body: n.body,
           icon: '/icon-192.png',
           badge: '/favicon-48.png',
-          tag: n.title,
+          tag: `${n.title}-${n.triggerAt}`,
           vibrate: [200, 100, 200],
           requireInteraction: true,
         });

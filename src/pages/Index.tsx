@@ -57,6 +57,7 @@ const Index = () => {
     passed: boolean;
     mode: CountdownMode;
   }>({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "Maghrib" });
+  const [isRamadan, setIsRamadan] = useState(false);
   const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -151,6 +152,12 @@ const Index = () => {
       const period = await fetchUpcomingRamadanPeriod(selectedCity, new Date());
       if (!cancelled) {
         setBayramDateKey(period?.bayramDateKey ?? null);
+
+        // Determine if it is currently Ramadan
+        const now = new Date();
+        const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const isRamadanDay = period?.days?.some(d => d.dateKey === dateKey && d.hijri?.monthNumber === 9);
+        setIsRamadan(!!isRamadanDay);
       }
     };
 
@@ -423,8 +430,9 @@ const Index = () => {
             </div>
 
             <NotificationManager
-              iftarTime={prayerTimes?.Maghrib}
-              sahurTime={prayerTimes?.Fajr}
+              prayerTimes={prayerTimes || undefined}
+
+              isRamadan={isRamadan}
               city={selectedCity}
             />
 
@@ -458,9 +466,9 @@ const Index = () => {
             {countdown.mode === "bayram"
               ? (countdown.passed ? "Bayram Günü" : "Bayramın Bitimine Kalan Süre")
               : countdown.passed && countdown.mode === "Maghrib"
-                ? "İftar vakti"
+                ? (isRamadan ? "İftar vakti" : "Akşam vakti")
                 : countdown.mode === "Fajr"
-                  ? "İmsak (Sahur) Vaktine Kalan Süre"
+                  ? (isRamadan ? "Sahur Vaktine Kalan Süre" : "İmsak Vaktine Kalan Süre")
                   : countdown.mode === "Sunrise"
                     ? "Güneşin Doğmasına Kalan Süre"
                     : countdown.mode === "Dhuhr"
@@ -468,7 +476,7 @@ const Index = () => {
                       : countdown.mode === "Asr"
                         ? "İkindi Vaktine Kalan Süre"
                         : countdown.mode === "Maghrib"
-                          ? "Akşam (İftar) Vaktine Kalan Süre"
+                          ? (isRamadan ? "İftar Vaktine Kalan Süre" : "Akşam Vaktine Kalan Süre")
                           : countdown.mode === "Isha"
                             ? "Yatsı Vaktine Kalan Süre"
                             : "Sonraki Vakte Kalan Süre"}
@@ -525,7 +533,9 @@ const Index = () => {
                       );
                     })()}
                   </div>
-                  <div className="text-xs text-cream-muted mb-1">{PRAYER_LABELS[key]}</div>
+                  <div className="text-xs text-cream-muted mb-1">
+                    {isRamadan && key === "Maghrib" ? "İftar" : isRamadan && key === "Fajr" ? "Sahur" : PRAYER_LABELS[key]}
+                  </div>
                   <div className="text-lg font-semibold text-cream font-sans">
                     {prayerTimes[key]}
                   </div>
