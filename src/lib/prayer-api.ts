@@ -268,7 +268,7 @@ export async function fetchUpcomingRamadanPeriod(
 
       if (hijri.monthNumber === 9) {
         periodDays.push(currentDay);
-        if (hijri.day === 27) {
+        if (hijri.day === 26) {
           kadirDateKey = currentDay.dateKey;
         }
         continue;
