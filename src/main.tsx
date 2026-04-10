@@ -11,6 +11,8 @@ function isProblematicBrowser(): boolean {
 }
 
 async function cleanupServiceWorkersAndCaches() {
+  const staleCachePrefixes = ["iftar-vakti-", "vakt-i-serif-"];
+
   if (!("serviceWorker" in navigator)) return;
   try {
     const regs = await navigator.serviceWorker.getRegistrations();
@@ -24,7 +26,7 @@ async function cleanupServiceWorkersAndCaches() {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((k) => k.startsWith("iftar-vakti-"))
+          .filter((k) => staleCachePrefixes.some((prefix) => k.startsWith(prefix)))
           .map((k) => caches.delete(k))
       );
     } catch (err) {

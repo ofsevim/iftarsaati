@@ -26,11 +26,14 @@ type ReminderSchedulerStatus = {
   exactAlarmsAllowed: boolean;
 };
 
+type NativeSettingsScreen = "notifications" | "exactAlarms";
+
 type ReminderSchedulerPlugin = {
   scheduleReminders(options: { notifications: ScheduledNotification[] }): Promise<void>;
   cancelAll(): Promise<void>;
   getStatus(): Promise<ReminderSchedulerStatus>;
   requestPermission(): Promise<ReminderSchedulerStatus>;
+  openSettings(options: { screen: NativeSettingsScreen }): Promise<{ opened: boolean; screen: NativeSettingsScreen }>;
 };
 
 const ReminderScheduler = registerPlugin<ReminderSchedulerPlugin>("ReminderScheduler");
@@ -418,6 +421,18 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     setTimeout(() => setTestSent(false), 5000);
   };
 
+  const handleOpenNativeSettings = async (screen: NativeSettingsScreen) => {
+    if (!isNativePlatform()) {
+      return;
+    }
+
+    try {
+      await ReminderScheduler.openSettings({ screen });
+    } catch (error) {
+      console.error("Native ayarlar acilamadi:", error);
+    }
+  };
+
   const updateMinutes = (key: keyof PrayerTimes, value: number) => {
     const newPref = {
       ...pref,
@@ -456,9 +471,20 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
           </div>
 
           {permission === "denied" ? (
-            <p className="text-xs text-cream-muted">
-              Bildirim izni kapali. Telefon ayarlarindan izin vermeniz gerekiyor.
-            </p>
+            <div className="space-y-3">
+              <p className="text-xs text-cream-muted">
+                Bildirim izni kapali. Telefon ayarlarindan izin vermeniz gerekiyor.
+              </p>
+
+              {isNativePlatform() && (
+                <button
+                  onClick={() => void handleOpenNativeSettings("notifications")}
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-cream-muted transition-colors hover:border-[hsl(36,55%,55%,0.3)] hover:text-gold"
+                >
+                  Bildirim ayarlarini ac
+                </button>
+              )}
+            </div>
           ) : (
             <>
               <button
@@ -521,8 +547,16 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                   )}
 
                   {isNativePlatform() && schedulerStatus?.exactAlarmsSupported && !schedulerStatus.exactAlarmsAllowed && (
-                    <div className="text-[11px] text-amber-200/80">
-                      Android tam-zaman alarm izni kapaliysa bildirimler birkaç dakika gecikebilir.
+                    <div className="space-y-2">
+                      <div className="text-[11px] text-amber-200/80">
+                        Android tam-zaman alarm izni kapaliysa bildirimler birkaç dakika gecikebilir.
+                      </div>
+                      <button
+                        onClick={() => void handleOpenNativeSettings("exactAlarms")}
+                        className="w-full rounded-xl border border-amber-200/20 bg-amber-200/5 px-3 py-2 text-xs text-amber-100 transition-colors hover:border-amber-200/40"
+                      >
+                        Tam-zaman alarm ayarini ac
+                      </button>
                     </div>
                   )}
 

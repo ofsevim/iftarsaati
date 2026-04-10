@@ -30,6 +30,29 @@ dist-ssr
 .env.development.local
 .env.test.local
 
-# Native Android project and local helpers
-android/
+# Native Android project
+android/*
+!android/app/
+android/app/*
+!android/app/src/
+android/app/src/*
+!android/app/src/main/
+android/app/src/main/*
+!android/app/src/main/AndroidManifest.xml
+!android/app/src/main/java/
+android/app/src/main/java/*
+!android/app/src/main/java/com/
+android/app/src/main/java/com/*
+!android/app/src/main/java/com/osoft/
+android/app/src/main/java/com/osoft/*
+!android/app/src/main/java/com/osoft/iftarsaati/
+android/app/src/main/java/com/osoft/iftarsaati/*
+!android/app/src/main/java/com/osoft/iftarsaati/ReminderSchedulerPlugin.java
+!android/app/src/main/java/com/osoft/iftarsaati/PrayerRemindersBootReceiver.java
+android/.gradle/
+android/.gradle-home/
+android/.idea/
+android/build/
+android/app/build/
+android/local.properties
 npx
