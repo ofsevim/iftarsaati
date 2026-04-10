@@ -18,9 +18,19 @@ type ScheduledNotification = {
   channel: "main" | "special" | "azan";
 };
 
+type AppNotificationPermission = NotificationPermission | "default";
+
+type ReminderSchedulerStatus = {
+  permission: AppNotificationPermission;
+  exactAlarmsSupported: boolean;
+  exactAlarmsAllowed: boolean;
+};
+
 type ReminderSchedulerPlugin = {
   scheduleReminders(options: { notifications: ScheduledNotification[] }): Promise<void>;
   cancelAll(): Promise<void>;
+  getStatus(): Promise<ReminderSchedulerStatus>;
+  requestPermission(): Promise<ReminderSchedulerStatus>;
 };
 
 const ReminderScheduler = registerPlugin<ReminderSchedulerPlugin>("ReminderScheduler");
@@ -86,10 +96,7 @@ function savePref(pref: NotifPref) {
   }
 }
 
-function getPermissionState(): NotificationPermission {
-  if (isNativePlatform()) {
-    return "granted";
-  }
+function getWebPermissionState(): AppNotificationPermission {
   return canNotifyOnWeb() ? Notification.permission : "denied";
 }
 
@@ -284,10 +291,58 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
   const [showSettings, setShowSettings] = useState(false);
   const [testSent, setTestSent] = useState(false);
   const [scheduled, setScheduled] = useState<number>(0);
-  const [permission, setPermission] = useState<NotificationPermission>(getPermissionState);
+  const [permission, setPermission] = useState<AppNotificationPermission>(() =>
+    isNativePlatform() ? "default" : getWebPermissionState()
+  );
+  const [schedulerStatus, setSchedulerStatus] = useState<ReminderSchedulerStatus | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncPermission = async () => {
+      if (isNativePlatform()) {
+        try {
+          const status = await ReminderScheduler.getStatus();
+          if (!cancelled) {
+            setSchedulerStatus(status);
+            setPermission(status.permission);
+          }
+        } catch (error) {
+          console.error("Native bildirim durumu alinamadi:", error);
+          if (!cancelled) {
+            setSchedulerStatus(null);
+            setPermission("default");
+          }
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setPermission(getWebPermissionState());
+      }
+    };
+
+    const handleVisibilityOrFocus = () => {
+      void syncPermission();
+    };
+
+    void syncPermission();
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+    };
+  }, []);
 
   useEffect(() => {
     if (!pref.enabled || permission !== "granted" || !canNotify()) {
+      void cancelScheduledNotifications().catch((error) => {
+        console.error("Bildirim iptal hatasi:", error);
+      });
+      setScheduled(0);
       return;
     }
 
@@ -317,7 +372,20 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     }
 
     if (!pref.enabled) {
-      if (!isNativePlatform()) {
+      if (isNativePlatform()) {
+        try {
+          const status = await ReminderScheduler.requestPermission();
+          setSchedulerStatus(status);
+          setPermission(status.permission);
+
+          if (status.permission !== "granted") {
+            return;
+          }
+        } catch (error) {
+          console.error("Native bildirim izni alinamadi:", error);
+          return;
+        }
+      } else {
         if (Notification.permission === "default") {
           const result = await Notification.requestPermission();
           setPermission(result);
@@ -332,7 +400,6 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
       const newPref = { ...pref, enabled: true };
       setPref(newPref);
       savePref(newPref);
-      setPermission(getPermissionState());
     } else {
       const newPref = { ...pref, enabled: false };
       setPref(newPref);
@@ -446,6 +513,18 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                   <div className="text-[11px] text-cream-muted/70">
                     Su an planlanan bildirim: {scheduled}
                   </div>
+
+                  {!isNativePlatform() && (
+                    <div className="text-[11px] text-cream-muted/60">
+                      Tarayicida planli bildirimler sekme uyursa veya kapanirsa aksayabilir.
+                    </div>
+                  )}
+
+                  {isNativePlatform() && schedulerStatus?.exactAlarmsSupported && !schedulerStatus.exactAlarmsAllowed && (
+                    <div className="text-[11px] text-amber-200/80">
+                      Android tam-zaman alarm izni kapaliysa bildirimler birkaç dakika gecikebilir.
+                    </div>
+                  )}
 
                   <button
                     onClick={handleTest}
