@@ -34,10 +34,14 @@ const DailyContentCard = () => {
   useEffect(() => {
     if (tab !== "ayet" || ayah !== null) return;
     setAyahLoading(true);
-    fetchDailyAyah().then((data) => {
-      setAyah(data);
-      setAyahLoading(false);
-    });
+    fetchDailyAyah()
+      .then((data) => {
+        setAyah(data);
+        setAyahLoading(false);
+      })
+      .catch(() => {
+        setAyahLoading(false);
+      });
   }, [tab, ayah]);
 
   const handleTouchStart = (e: React.TouchEvent) => {

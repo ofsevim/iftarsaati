@@ -30,7 +30,7 @@ export async function fetchDailyAyah(): Promise<AyahData | null> {
   try {
     const cached = localStorage.getItem(cacheKey);
     if (cached) return JSON.parse(cached) as AyahData;
-  } catch {}
+  } catch { /* localStorage parse failure — ignore, fallback to API */ }
 
   const ref = RAMADAN_AYAHS[getDayIndex()];
 
@@ -55,7 +55,7 @@ export async function fetchDailyAyah(): Promise<AyahData | null> {
 
     try {
       localStorage.setItem(cacheKey, JSON.stringify(result));
-    } catch {}
+    } catch { /* localStorage write failure — ignore, quota exceeded */ }
 
     return result;
   } catch {

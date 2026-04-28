@@ -61,7 +61,7 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
   const getDayName = (dateKey: string) => {
     const [y, m, d] = dateKey.split("-").map(Number);
     const date = new Date(y, m - 1, d);
-    return ["Pazar", "Pazartesi", "Sali", "Carsamba", "Persembe", "Cuma", "Cumartesi"][date.getDay()];
+    return ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"][date.getDay()];
   };
 
   return (
