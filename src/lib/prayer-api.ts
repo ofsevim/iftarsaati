@@ -54,10 +54,21 @@ function addMonths(date: Date, months: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + months, 1);
 }
 
+/** Aladhan API timings nesnesi için arayüz */
+interface AladhanTimings {
+  Fajr?: string;
+  Sunrise?: string;
+  Dhuhr?: string;
+  Asr?: string;
+  Maghrib?: string;
+  Isha?: string;
+  [key: string]: string | undefined;
+}
+
 /**
  * Aladhan timings nesnesini uygulama formatına çevirir.
  */
-function normalizePrayerTimesFromTimings(timings: any): PrayerTimes | null {
+function normalizePrayerTimesFromTimings(timings: AladhanTimings | null | undefined): PrayerTimes | null {
   if (!timings) return null;
   const normalizeTime = (t: unknown) =>
     typeof t === "string" ? t.split(" ")[0] : null;
@@ -88,12 +99,12 @@ async function fetchPrayerTimesViaCalendar(city: City, date: Date): Promise<Pray
   const json = await response.json();
   if (!json?.data || !Array.isArray(json.data)) return null;
 
-  const row = json.data.find((item: any) => {
-    const g = item?.date?.gregorian;
+  const row = json.data.find((item: Record<string, unknown>) => {
+    const g = (item?.date as Record<string, unknown>)?.gregorian as Record<string, unknown> | undefined;
     return Number(g?.day) === day;
   });
 
-  return normalizePrayerTimesFromTimings(row?.timings);
+  return normalizePrayerTimesFromTimings(row?.timings as AladhanTimings | undefined);
 }
 
 /**
@@ -167,7 +178,7 @@ export async function fetchMonthlyPrayerTimes(
         `https://api.aladhan.com/v1/calendar/${year}/${month}?latitude=${city.lat}&longitude=${city.lng}&method=13`
       );
 
-      let json: any;
+      let json: Record<string, unknown>;
       try {
         json = await res.json();
       } catch {
@@ -330,7 +341,7 @@ export async function fetchPrayerTimesForDate(
       `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${city.lat}&longitude=${city.lng}&method=13`
     );
 
-    let data: any;
+    let data: Record<string, unknown>;
     try {
       data = await response.json();
     } catch {
@@ -338,7 +349,8 @@ export async function fetchPrayerTimesForDate(
       return getCachedData<PrayerTimes>(cacheKey);
     }
 
-    if (!data?.data?.timings) {
+    const dataObj = data?.data as Record<string, unknown> | undefined;
+    if (!dataObj?.timings) {
       console.error("[Prayer API] Beklenmeyen yanıt yapısı (daily)");
       try {
         const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
@@ -352,7 +364,7 @@ export async function fetchPrayerTimesForDate(
       return getCachedData<PrayerTimes>(cacheKey);
     }
 
-    const result = normalizePrayerTimesFromTimings(data.data.timings);
+    const result = normalizePrayerTimesFromTimings(dataObj.timings as AladhanTimings);
     if (!result) {
       try {
         const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
@@ -410,159 +422,6 @@ export function findNearestCity(
   }
 
   return nearest;
-}
-
-/**
- * İftar sayacı:
- * - Akşam ezanı başladığında iftar vaktidir.
- * - Ezan bitene kadar ("ezan süresi") kullanıcıya "Hayırlı iftarlar" göstermek için `passed=true` döner.
- * - Ezan bittikten sonra sayaç otomatik olarak ertesi günün iftarına döner (yarın Maghrib verilmişse).
- */
-export function getTimeUntilIftarWithEzan(
-  todayMaghribTime: string,
-  tomorrowMaghribTime?: string,
-  opts?: {
-    /**
-     * Ezanın ortalama süresi (dakika). Varsayılan: 4 dk.
-     * Not: Diyanet/şehir/camiye göre değişebilir; UI davranışı için pratik bir varsayım.
-     */
-    ezanDurationMinutes?: number;
-    /** Test ve deterministik kullanım için "şu an" override. */
-    now?: Date;
-  }
-): {
-  hours: number;
-  minutes: number;
-  seconds: number;
-  passed: boolean;
-} {
-  const now = opts?.now ?? new Date();
-  const ezanDurationMinutes = opts?.ezanDurationMinutes ?? 4;
-
-  const parseTimeOnDate = (base: Date, time: string) => {
-    const [h, m] = time.split(":").map(Number);
-    const d = new Date(base);
-    d.setHours(h, m, 0, 0);
-    return d;
-  };
-
-  const todayIftar = parseTimeOnDate(now, todayMaghribTime);
-  const ezanEnd = new Date(todayIftar.getTime() + ezanDurationMinutes * 60 * 1000);
-
-  // İftar henüz gelmediyse: bugünün iftarına say.
-  if (now.getTime() < todayIftar.getTime()) {
-    const diff = todayIftar.getTime() - now.getTime();
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-    return { hours, minutes, seconds, passed: false };
-  }
-
-  // İftar geldi ama ezan bitmediyse: "Hayırlı iftarlar" modunda kal.
-  if (now.getTime() <= ezanEnd.getTime()) {
-    return { hours: 0, minutes: 0, seconds: 0, passed: true };
-  }
-
-  // Ezan bitti: yarının iftarına say (varsa).
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const target = tomorrowMaghribTime
-    ? parseTimeOnDate(tomorrow, tomorrowMaghribTime)
-    : new Date(todayIftar.getTime() + 24 * 60 * 60 * 1000); // fallback: aynı saat + 1 gün
-
-  const diff = target.getTime() - now.getTime();
-  if (diff <= 0) {
-    // Teorik edge-case: saat ayarı vs. vb.
-    return { hours: 0, minutes: 0, seconds: 0, passed: false };
-  }
-
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-  return { hours, minutes, seconds, passed: false };
-}
-
-export type IftarCountdownMode = "iftar" | "imsak";
-
-/**
- * İftar sayacı (ezan penceresi dahil) → ezan bittikten sonra "imsaka/sahur bitimine" kalan süre.
- *
- * Dönüş:
- * - mode="iftar" + passed=false => iftara kalan süre
- * - mode="iftar" + passed=true  => iftar (ezan) anı / "Hayırlı iftarlar" penceresi
- * - mode="imsak" + passed=false => imsaka (sahurun bitimine) kalan süre
- */
-export function getTimeUntilIftarThenImsak(
-  todayMaghribTime: string,
-  tomorrowFajrTime?: string,
-  opts?: {
-    todayFajrTime?: string;
-    ezanDurationMinutes?: number;
-    now?: Date;
-  }
-): {
-  hours: number;
-  minutes: number;
-  seconds: number;
-  passed: boolean;
-  mode: IftarCountdownMode;
-} {
-  const now = opts?.now ?? new Date();
-  const ezanDurationMinutes = opts?.ezanDurationMinutes ?? 4;
-
-  const parseTimeOnDate = (base: Date, time: string) => {
-    const [h, m] = time.split(":").map(Number);
-    const d = new Date(base);
-    d.setHours(h, m, 0, 0);
-    return d;
-  };
-
-  const calcDiff = (target: Date) => {
-    const diff = target.getTime() - now.getTime();
-    if (diff <= 0) return { hours: 0, minutes: 0, seconds: 0 };
-    return {
-      hours: Math.floor(diff / (1000 * 60 * 60)),
-      minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-      seconds: Math.floor((diff % (1000 * 60)) / 1000),
-    };
-  };
-
-  // 1) Gece yarısı – Fajr arası: sahur hâlâ devam ediyor, imsaka say.
-  if (opts?.todayFajrTime) {
-    const todayFajr = parseTimeOnDate(now, opts.todayFajrTime);
-    if (now.getTime() < todayFajr.getTime()) {
-      const d = calcDiff(todayFajr);
-      return { ...d, passed: false, mode: "imsak" };
-    }
-  }
-
-  // 2) Fajr – Maghrib arası: iftara say.
-  const todayIftar = parseTimeOnDate(now, todayMaghribTime);
-  if (now.getTime() < todayIftar.getTime()) {
-    const d = calcDiff(todayIftar);
-    return { ...d, passed: false, mode: "iftar" };
-  }
-
-  // 3) Ezan penceresi (Maghrib → +4dk): "Hayırlı iftarlar".
-  const ezanEnd = new Date(todayIftar.getTime() + ezanDurationMinutes * 60 * 1000);
-  if (now.getTime() <= ezanEnd.getTime()) {
-    return { hours: 0, minutes: 0, seconds: 0, passed: true, mode: "iftar" };
-  }
-
-  // 4) Ezan bitti → yarının Fajr'ına (imsak) say.
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const target = tomorrowFajrTime
-    ? parseTimeOnDate(tomorrow, tomorrowFajrTime)
-    : new Date(todayIftar.getTime() + 12 * 60 * 60 * 1000); // fallback
-
-  const diff = target.getTime() - now.getTime();
-  if (diff <= 0) {
-    return { hours: 0, minutes: 0, seconds: 0, passed: false, mode: "imsak" };
-  }
-
-  const d = calcDiff(target);
-  return { ...d, passed: false, mode: "imsak" };
 }
 
 export function getCurrentPrayer(times: PrayerTimes): keyof PrayerTimes | null {

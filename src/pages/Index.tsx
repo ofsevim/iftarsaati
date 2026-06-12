@@ -486,10 +486,10 @@ const Index = () => {
             <div className="text-cream-muted animate-pulse">Vakitler yükleniyor...</div>
           ) : !prayerTimes ? (
             <div className="text-cream-muted">Vakit verileri şu an alınamadı.</div>
+          ) : countdown.passed && countdown.mode === "bayram" ? (
+            <div className="text-2xl md:text-3xl font-display text-gold">Bayramınız Mübarek Olsun! 🎉</div>
           ) : countdown.passed && countdown.mode === "Maghrib" ? (
-            <div className="text-2xl md:text-3xl font-display text-gold">
-              {countdown.mode === "bayram" ? "Bayramınız Mübarek Olsun!" : "Hayırlı İftarlar! 🌙"}
-            </div>
+            <div className="text-2xl md:text-3xl font-display text-gold">Hayırlı İftarlar! 🌙</div>
           ) : (
             <div className="flex items-center gap-3 md:gap-4 justify-center">
               <div className="text-center">
