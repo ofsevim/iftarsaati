@@ -325,7 +325,7 @@ const Index = () => {
       <div className="fixed inset-0 bg-background/60" />
 
       {/* Side Ornaments - Mobile only — İslami geometrik altın motif */}
-      <svg aria-hidden="true" className="fixed inset-y-0 left-0 w-10 h-full z-0 pointer-events-none md:hidden" preserveAspectRatio="none">
+      <svg aria-hidden="true" className="fixed inset-y-0 left-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden opacity-75" preserveAspectRatio="none">
         <defs>
           <pattern id="sideMotifL" x="0" y="0" width="40" height="80" patternUnits="userSpaceOnUse">
             {/* Altın çizgi çerçeve */}
@@ -342,7 +342,7 @@ const Index = () => {
         </defs>
         <rect width="100%" height="100%" fill="url(#sideMotifL)" />
       </svg>
-      <svg aria-hidden="true" className="fixed inset-y-0 right-0 w-10 h-full z-0 pointer-events-none md:hidden" preserveAspectRatio="none">
+      <svg aria-hidden="true" className="fixed inset-y-0 right-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden opacity-75" preserveAspectRatio="none">
         <defs>
           <pattern id="sideMotifR" x="0" y="0" width="40" height="80" patternUnits="userSpaceOnUse">
             {/* Altın çizgi çerçeve */}
@@ -553,24 +553,24 @@ const Index = () => {
             <div className="text-2xl md:text-3xl font-display text-gold">Hayırlı İftarlar! 🌙</div>
           ) : (
             <div
-              className="flex items-center gap-3 md:gap-4 justify-center"
+              className="flex items-center gap-1.5 sm:gap-3 md:gap-4 justify-center"
               role="timer"
               aria-live="polite"
               aria-atomic="true"
             >
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.hours || 0)}</div>
-                <span className="text-xs text-cream-muted mt-2 block">Saat</span>
+                <span className="text-[11px] sm:text-xs text-cream-muted mt-1.5 sm:mt-2 block">Saat</span>
               </div>
-              <span className="text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
+              <span className="text-2xl sm:text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.minutes || 0)}</div>
-                <span className="text-xs text-cream-muted mt-2 block">Dakika</span>
+                <span className="text-[11px] sm:text-xs text-cream-muted mt-1.5 sm:mt-2 block">Dakika</span>
               </div>
-              <span className="text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
+              <span className="text-2xl sm:text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.seconds || 0)}</div>
-                <span className="text-xs text-cream-muted mt-2 block">Saniye</span>
+                <span className="text-[11px] sm:text-xs text-cream-muted mt-1.5 sm:mt-2 block">Saniye</span>
               </div>
             </div>
           )}

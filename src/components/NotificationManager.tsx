@@ -462,7 +462,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
       </button>
 
       {showSettings && (
-        <div className="absolute top-full mt-2 right-0 w-72 bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute top-full mt-2 right-0 w-72 max-w-[calc(100vw-2rem)] bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-cream">Bildirimler</span>
             <button onClick={() => setShowSettings(false)} className="text-cream-muted hover:text-gold">

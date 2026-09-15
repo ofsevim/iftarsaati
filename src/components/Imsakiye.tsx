@@ -122,18 +122,22 @@ const Imsakiye = ({ city, period: propPeriod }: ImsakiyeProps) => {
         </div>
       ) : (
         <div className="glass-card gold-border overflow-hidden">
-          <table className="w-full text-[10px] sm:text-xs md:text-sm">
-            <thead>
-              <tr className="border-b" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
-                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">Gun</th>
-                <th className="px-1 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-left text-gold-light font-display font-medium">Tarih</th>
-                {prayerKeys.map((key) => (
-                  <th key={key} className="px-0.5 sm:px-1.5 md:px-3 py-1.5 md:py-3 text-center text-gold-light font-display font-medium">
-                    {PRAYER_LABELS[key]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
+          <div className="sm:hidden text-right px-3 py-1 text-[10px] text-cream-muted/50 border-b border-white/5">
+            ↔ Sağa/sola kaydırılabilir
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[500px] text-xs md:text-sm">
+              <thead>
+                <tr className="border-b" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
+                  <th className="px-1.5 sm:px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium">Gün</th>
+                  <th className="px-1.5 sm:px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium">Tarih</th>
+                  {prayerKeys.map((key) => (
+                    <th key={key} className="px-1 sm:px-2 md:px-3 py-2 md:py-3 text-center text-gold-light font-display font-medium">
+                      {PRAYER_LABELS[key]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
             <tbody>
               {days.map((day: DailyPrayerTimes, i) => {
                 const isToday = day.dateKey === todayStr;
@@ -203,6 +207,7 @@ const Imsakiye = ({ city, period: propPeriod }: ImsakiyeProps) => {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

@@ -139,16 +139,15 @@
   }
 
   .countdown-digit {
-    @apply glass-card-backdrop gold-border gold-glow px-4 py-3 md:px-6 md:py-4 text-4xl md:text-6xl font-bold tabular-nums;
+    @apply glass-card-backdrop gold-border gold-glow px-2.5 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 text-3xl sm:text-4xl md:text-6xl font-bold tabular-nums min-w-[3.25rem] sm:min-w-[4rem];
     color: hsl(var(--gold-light));
     font-family: 'Inter', sans-serif;
     font-weight: 700;
-    min-width: 4rem;
     text-align: center;
   }
 
   .prayer-card {
-    @apply glass-card-backdrop gold-border p-4 text-center transition-all duration-300;
+    @apply glass-card-backdrop gold-border p-2.5 sm:p-4 text-center transition-all duration-300;
   }
 
   .prayer-card:hover {
