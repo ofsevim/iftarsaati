@@ -1,5 +1,17 @@
 import { PrayerTimes, City } from "@/data/cities";
 
+export interface HijriDateInfo {
+  year: number;
+  monthNumber: number;
+  monthName: string;
+  day: number;
+  isRamadan: boolean;
+}
+
+export interface PrayerTimesWithMeta extends PrayerTimes {
+  hijri?: HijriDateInfo;
+}
+
 export interface DailyPrayerTimes {
   dateKey: string;   // YYYY-MM-DD
   dateLabel: string; // e.g. "18 Şubat"
@@ -245,73 +257,166 @@ export async function fetchMonthlyPrayerTimes(
   return results;
 }
 
+// In-flight request deduplication maps
+const inFlightRamadanRequests = new Map<string, Promise<RamadanPeriod | null>>();
+const inFlightDailyRequests = new Map<string, Promise<PrayerTimesWithMeta | null>>();
+
 export async function fetchUpcomingRamadanPeriod(
   city: City,
   referenceDate: Date = new Date()
 ): Promise<RamadanPeriod | null> {
-  const scanStart = addMonths(referenceDate, -2);
-  const scanEnd = new Date(referenceDate.getFullYear(), referenceDate.getMonth() + 19, 0);
-  const days = await fetchMonthlyPrayerTimes(city, scanStart, scanEnd);
+  const refYear = referenceDate.getFullYear();
+  const cacheKey = `ramadan_period_${city.name}_${refYear}`;
+  const inFlightKey = `${city.name}_${refYear}`;
 
-  if (!days.length) {
-    return null;
+  const cached = getCachedData<RamadanPeriod>(cacheKey);
+  if (cached && cached.days && cached.days.length > 0) {
+    return cached;
   }
 
-  const periods: RamadanPeriod[] = [];
+  if (inFlightRamadanRequests.has(inFlightKey)) {
+    return inFlightRamadanRequests.get(inFlightKey)!;
+  }
 
-  for (let i = 0; i < days.length; i++) {
-    const startDay = days[i];
-    if (startDay.hijri?.monthNumber !== 9 || startDay.hijri.day !== 1) {
-      continue;
-    }
+  const fetchPromise = (async (): Promise<RamadanPeriod | null> => {
+    try {
+      // Yaklaşık Hicri yıl: 2026 yılı için Hicri 1447'dir
+      const approxHijriYear = Math.round((refYear - 622) * (33 / 32));
 
-    const periodDays: DailyPrayerTimes[] = [];
-    let bayramDateKey: string | null = null;
-    let kadirDateKey: string | null = null;
+      let hijriYearToUse = approxHijriYear;
+      let ramadanRes = await fetchWithRetry(
+        `https://api.aladhan.com/v1/hijriCalendar/${hijriYearToUse}/9?latitude=${city.lat}&longitude=${city.lng}&method=13`
+      );
 
-    for (let j = i; j < days.length; j++) {
-      const currentDay = days[j];
-      const hijri = currentDay.hijri;
-
-      if (!hijri) {
-        continue;
+      let ramadanJson: Record<string, unknown> = await ramadanRes.json().catch(() => ({}));
+      if (!ramadanJson?.data || !Array.isArray(ramadanJson.data) || ramadanJson.data.length === 0) {
+        hijriYearToUse = approxHijriYear - 1;
+        ramadanRes = await fetchWithRetry(
+          `https://api.aladhan.com/v1/hijriCalendar/${hijriYearToUse}/9?latitude=${city.lat}&longitude=${city.lng}&method=13`
+        );
+        ramadanJson = await ramadanRes.json().catch(() => ({}));
       }
 
-      if (hijri.monthNumber === 9) {
-        periodDays.push(currentDay);
-        if (hijri.day === 26) {
-          kadirDateKey = currentDay.dateKey;
+      if (!ramadanJson?.data || !Array.isArray(ramadanJson.data) || ramadanJson.data.length === 0) {
+        return getCachedData<RamadanPeriod>(cacheKey);
+      }
+
+      const periodDays: DailyPrayerTimes[] = [];
+      let kadirDateKey: string | null = null;
+
+      for (const dayData of (ramadanJson.data as Record<string, unknown>[])) {
+        const dateObj = dayData?.date as Record<string, unknown> | undefined;
+        const g = dateObj?.gregorian as Record<string, unknown> | undefined;
+        const t = dayData?.timings as Record<string, string> | undefined;
+        const h = dateObj?.hijri as Record<string, unknown> | undefined;
+        if (!g || !t) continue;
+
+        const dayNum = Number(g.day);
+        const monthObj = g.month as Record<string, unknown> | undefined;
+        const monthNum = Number(monthObj?.number ?? g.month);
+        const dateKey = `${g.year}-${String(monthNum).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+        const dateLabel = `${dayNum} ${MONTH_NAMES[monthNum - 1]}`;
+
+        const hDay = Number(h?.day || 0);
+        if (hDay === 26 || hDay === 27) {
+          if (!kadirDateKey) kadirDateKey = dateKey;
         }
-        continue;
+
+        periodDays.push({
+          dateKey,
+          dateLabel,
+          times: {
+            Fajr: t.Fajr?.split(" ")[0] || "",
+            Sunrise: t.Sunrise?.split(" ")[0] || "",
+            Dhuhr: t.Dhuhr?.split(" ")[0] || "",
+            Asr: t.Asr?.split(" ")[0] || "",
+            Maghrib: t.Maghrib?.split(" ")[0] || "",
+            Isha: t.Isha?.split(" ")[0] || "",
+          },
+          hijri: {
+            year: Number(h?.year || hijriYearToUse),
+            monthNumber: 9,
+            monthName: "Ramazan",
+            day: hDay,
+          },
+        });
       }
 
-      if (hijri.monthNumber === 10 && hijri.day === 1) {
-        periodDays.push(currentDay);
-        bayramDateKey = currentDay.dateKey;
+      if (periodDays.length === 0) return null;
+
+      // Şevval 1. günü (Bayram) al
+      let bayramDateKey: string | null = null;
+      try {
+        const eidRes = await fetchWithRetry(
+          `https://api.aladhan.com/v1/hijriCalendar/${hijriYearToUse}/10?latitude=${city.lat}&longitude=${city.lng}&method=13`
+        );
+        const eidJson = await eidRes.json().catch(() => ({}));
+        const eidList = eidJson?.data as Record<string, unknown>[] | undefined;
+        const eidFirstDay = eidList?.[0];
+        if (eidFirstDay) {
+          const edateObj = eidFirstDay?.date as Record<string, unknown> | undefined;
+          const eg = edateObj?.gregorian as Record<string, unknown> | undefined;
+          const et = eidFirstDay?.timings as Record<string, string> | undefined;
+          const eh = edateObj?.hijri as Record<string, unknown> | undefined;
+          if (eg && et) {
+            const edayNum = Number(eg.day);
+            const emonthObj = eg.month as Record<string, unknown> | undefined;
+            const emonthNum = Number(emonthObj?.number ?? eg.month);
+            bayramDateKey = `${eg.year}-${String(emonthNum).padStart(2, "0")}-${String(edayNum).padStart(2, "0")}`;
+
+            periodDays.push({
+              dateKey: bayramDateKey,
+              dateLabel: `${edayNum} ${MONTH_NAMES[emonthNum - 1]}`,
+              times: {
+                Fajr: et.Fajr?.split(" ")[0] || "",
+                Sunrise: et.Sunrise?.split(" ")[0] || "",
+                Dhuhr: et.Dhuhr?.split(" ")[0] || "",
+                Asr: et.Asr?.split(" ")[0] || "",
+                Maghrib: et.Maghrib?.split(" ")[0] || "",
+                Isha: et.Isha?.split(" ")[0] || "",
+              },
+              hijri: {
+                year: Number(eh?.year || hijriYearToUse),
+                monthNumber: 10,
+                monthName: "Şevval",
+                day: 1,
+              },
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("[Prayer API] Bayram günü alınırken hata:", err);
       }
 
-      break;
-    }
+      if (!bayramDateKey) {
+        const lastDay = periodDays[periodDays.length - 1];
+        const [y, m, d] = lastDay.dateKey.split("-").map(Number);
+        const nextD = new Date(y, m - 1, d + 1);
+        bayramDateKey = formatDateKey(nextD);
+      }
 
-    if (periodDays.length > 0 && bayramDateKey) {
-      periods.push({
-        startDateKey: startDay.dateKey,
+      const result: RamadanPeriod = {
+        startDateKey: periodDays[0].dateKey,
         bayramDateKey,
-        kadirDateKey,
+        kadirDateKey: kadirDateKey || periodDays[Math.min(26, periodDays.length - 1)].dateKey,
         days: periodDays,
-      });
+      };
+
+      setCachedData(cacheKey, result);
+      return result;
+    } catch (e) {
+      console.error("[Prayer API] Ramadan period getirme hatası:", e);
+      return getCachedData<RamadanPeriod>(cacheKey);
     }
-  }
+  })().finally(() => {
+    inFlightRamadanRequests.delete(inFlightKey);
+  });
 
-  if (!periods.length) {
-    return null;
-  }
-
-  const referenceKey = formatDateKey(referenceDate);
-  return periods.find((period) => period.bayramDateKey >= referenceKey) ?? periods[periods.length - 1];
+  inFlightRamadanRequests.set(inFlightKey, fetchPromise);
+  return fetchPromise;
 }
 
-export async function fetchPrayerTimes(city: City): Promise<PrayerTimes | null> {
+export async function fetchPrayerTimes(city: City): Promise<PrayerTimesWithMeta | null> {
   return fetchPrayerTimesForDate(city, new Date());
 }
 
@@ -332,40 +437,89 @@ function formatDateForPrayerApi(date: Date): string {
 export async function fetchPrayerTimesForDate(
   city: City,
   date: Date
-): Promise<PrayerTimes | null> {
+): Promise<PrayerTimesWithMeta | null> {
   const dateStr = formatDateForPrayerApi(date);
   const cacheKey = `daily_${city.name}_${dateStr}`;
+  const inFlightKey = `${city.name}_${dateStr}`;
 
-  try {
-    const response = await fetchWithRetry(
-      `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${city.lat}&longitude=${city.lng}&method=13`
-    );
+  const cached = getCachedData<PrayerTimesWithMeta>(cacheKey);
+  if (cached) {
+    return cached;
+  }
 
-    let data: Record<string, unknown>;
+  if (inFlightDailyRequests.has(inFlightKey)) {
+    return inFlightDailyRequests.get(inFlightKey)!;
+  }
+
+  const fetchPromise = (async (): Promise<PrayerTimesWithMeta | null> => {
     try {
-      data = await response.json();
-    } catch {
-      console.error("[Prayer API] Geçersiz JSON yanıtı (daily)");
-      return getCachedData<PrayerTimes>(cacheKey);
-    }
+      const response = await fetchWithRetry(
+        `https://api.aladhan.com/v1/timings/${dateStr}?latitude=${city.lat}&longitude=${city.lng}&method=13`
+      );
 
-    const dataObj = data?.data as Record<string, unknown> | undefined;
-    if (!dataObj?.timings) {
-      console.error("[Prayer API] Beklenmeyen yanıt yapısı (daily)");
+      let data: Record<string, unknown>;
       try {
-        const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
-        if (fromCalendar) {
-          setCachedData(cacheKey, fromCalendar);
-          return fromCalendar;
-        }
+        data = await response.json();
       } catch {
-        // Calendar fallback de başarısız olabilir; cache fallback'e düş
+        console.error("[Prayer API] Geçersiz JSON yanıtı (daily)");
+        return getCachedData<PrayerTimesWithMeta>(cacheKey);
       }
-      return getCachedData<PrayerTimes>(cacheKey);
-    }
 
-    const result = normalizePrayerTimesFromTimings(dataObj.timings as AladhanTimings);
-    if (!result) {
+      const dataObj = data?.data as Record<string, unknown> | undefined;
+      if (!dataObj?.timings) {
+        console.error("[Prayer API] Beklenmeyen yanıt yapısı (daily)");
+        try {
+          const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
+          if (fromCalendar) {
+            setCachedData(cacheKey, fromCalendar);
+            return fromCalendar;
+          }
+        } catch {
+          // Calendar fallback de başarısız olabilir; cache fallback'e düş
+        }
+        return getCachedData<PrayerTimesWithMeta>(cacheKey);
+      }
+
+      const result = normalizePrayerTimesFromTimings(dataObj.timings as AladhanTimings);
+      if (!result) {
+        try {
+          const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
+          if (fromCalendar) {
+            setCachedData(cacheKey, fromCalendar);
+            return fromCalendar;
+          }
+        } catch {
+          // ignore
+        }
+        return getCachedData<PrayerTimesWithMeta>(cacheKey);
+      }
+
+      // Extract Hijri date
+      const dateSection = dataObj.date as Record<string, unknown> | undefined;
+      const hijriRaw = dateSection?.hijri as Record<string, unknown> | undefined;
+      let hijriInfo: HijriDateInfo | undefined;
+      if (hijriRaw) {
+        const monthObj = hijriRaw.month as Record<string, unknown> | undefined;
+        const monthNum = Number(monthObj?.number || 0);
+        hijriInfo = {
+          year: Number(hijriRaw.year || 0),
+          monthNumber: monthNum,
+          monthName: String(monthObj?.en || ""),
+          day: Number(hijriRaw.day || 0),
+          isRamadan: monthNum === 9,
+        };
+      }
+
+      const finalResult: PrayerTimesWithMeta = {
+        ...result,
+        ...(hijriInfo ? { hijri: hijriInfo } : {}),
+      };
+
+      setCachedData(cacheKey, finalResult);
+      return finalResult;
+    } catch (error) {
+      console.error("[Prayer API] Daily fetch hatası:", error);
+      // Timings endpoint tamamen düştüyse calendar fallback dene
       try {
         const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
         if (fromCalendar) {
@@ -375,32 +529,20 @@ export async function fetchPrayerTimesForDate(
       } catch {
         // ignore
       }
-      return getCachedData<PrayerTimes>(cacheKey);
-    }
-
-    setCachedData(cacheKey, result);
-    return result;
-  } catch (error) {
-    console.error("[Prayer API] Daily fetch hatası:", error);
-    // Timings endpoint tamamen düştüyse calendar fallback dene
-    try {
-      const fromCalendar = await fetchPrayerTimesViaCalendar(city, date);
-      if (fromCalendar) {
-        setCachedData(cacheKey, fromCalendar);
-        return fromCalendar;
+      // API erişilemezse eski cache'den dön
+      const cached = getCachedData<PrayerTimesWithMeta>(cacheKey);
+      if (cached) {
+        console.info("[Prayer API] API erişilemedi — cache'den yükleniyor (daily).");
+        return cached;
       }
-    } catch {
-      // ignore
+      return null;
     }
-    // API erişilemezse eski cache'den dön
-    const cached = getCachedData<PrayerTimes>(cacheKey);
-    if (cached) {
-      console.info("[Prayer API] API erişilemedi — cache'den yükleniyor (daily).");
-      return cached;
-    }
-    // Son çare: uygulama tamamen boş kalmasın diye yerleşik fallback
-    return null;
-  }
+  })().finally(() => {
+    inFlightDailyRequests.delete(inFlightKey);
+  });
+
+  inFlightDailyRequests.set(inFlightKey, fetchPromise);
+  return fetchPromise;
 }
 
 export function findNearestCity(

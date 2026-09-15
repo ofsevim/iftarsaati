@@ -11,6 +11,13 @@
   NODE_VERSION = "18"
 
 [[headers]]
+  for = "/widget*"
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors *"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
   for = "/*"
   [headers.values]
     X-Frame-Options = "DENY"

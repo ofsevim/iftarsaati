@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Candy } from "lucide-react";
+import { Candy, Printer, Share2 } from "lucide-react";
 import { City, PRAYER_LABELS, type PrayerTimes } from "@/data/cities";
 import {
   fetchUpcomingRamadanPeriod,
@@ -9,6 +9,7 @@ import {
 
 interface ImsakiyeProps {
   city: City;
+  period?: RamadanPeriod | null;
 }
 
 function formatDateRangeLabel(period: RamadanPeriod): string {
@@ -21,18 +22,19 @@ function formatDateRangeLabel(period: RamadanPeriod): string {
   return `${startLabel} - ${endLabel}`;
 }
 
-const Imsakiye = ({ city }: ImsakiyeProps) => {
-  const [period, setPeriod] = useState<RamadanPeriod | null>(null);
-  const [loading, setLoading] = useState(true);
+const Imsakiye = ({ city, period: propPeriod }: ImsakiyeProps) => {
+  const [internalPeriod, setInternalPeriod] = useState<RamadanPeriod | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (propPeriod !== undefined) return;
     let cancelled = false;
 
     const load = async () => {
       setLoading(true);
       const data = await fetchUpcomingRamadanPeriod(city, new Date());
       if (!cancelled) {
-        setPeriod(data);
+        setInternalPeriod(data);
         setLoading(false);
       }
     };
@@ -41,8 +43,9 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
     return () => {
       cancelled = true;
     };
-  }, [city]);
+  }, [city, propPeriod]);
 
+  const period = propPeriod !== undefined ? propPeriod : internalPeriod;
   const days = period?.days ?? [];
 
   const todayStr = useMemo(() => {
@@ -64,24 +67,58 @@ const Imsakiye = ({ city }: ImsakiyeProps) => {
     return ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"][date.getDay()];
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleShare = () => {
+    const text = `${city.name} 2026 Ramazan İmsakiyesi ve İftar Vakitleri: https://iftarsaati.netlify.app/`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
   return (
-    <div className="w-full max-w-4xl mt-12 mb-8">
-      <h3 className="font-display text-xl md:text-2xl text-gold text-center mb-2">
-        {city.name} - Ramazan Imsakiyesi
-      </h3>
-      {period && (
-        <p className="text-center text-sm text-cream-muted mb-6">
-          {formatDateRangeLabel(period)}
-        </p>
-      )}
+    <div className="w-full max-w-4xl mt-12 mb-8 print:m-0 print:max-w-full">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="text-center sm:text-left">
+          <h3 className="font-display text-xl md:text-2xl text-gold">
+            {city.name} - Ramazan İmsakiyesi
+          </h3>
+          {period && (
+            <p className="text-xs sm:text-sm text-cream-muted mt-1">
+              {formatDateRangeLabel(period)}
+            </p>
+          )}
+        </div>
+
+        {period && days.length > 0 && (
+          <div className="flex items-center justify-center sm:justify-end gap-2 print:hidden">
+            <button
+              onClick={handlePrint}
+              className="glass-card gold-border px-3 py-1.5 flex items-center gap-1.5 text-xs text-cream-muted hover:text-gold transition-colors"
+              title="İmsakiyeyi Yazdır"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Yazdır</span>
+            </button>
+            <button
+              onClick={handleShare}
+              className="glass-card gold-border px-3 py-1.5 flex items-center gap-1.5 text-xs text-cream-muted hover:text-gold transition-colors"
+              title="WhatsApp ile Paylaş"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>WhatsApp</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {loading ? (
         <div className="text-center text-cream-muted animate-pulse py-8">
-          Imsakiye yukleniyor...
+          İmsakiye yükleniyor...
         </div>
       ) : !period || days.length === 0 ? (
         <div className="glass-card gold-border text-center text-cream-muted py-8 px-4">
-          Bu sehir icin Ramazan takvimi su an alinamadi.
+          Bu şehir için Ramazan takvimi şu an alınamadı.
         </div>
       ) : (
         <div className="glass-card gold-border overflow-hidden">

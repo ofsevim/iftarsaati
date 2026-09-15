@@ -24,6 +24,7 @@ type CountdownMode = "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha" |
 
 function safeStorageGet(key: string): string | null {
   try {
+
     return localStorage.getItem(key);
   } catch {
     return null;
@@ -50,6 +51,12 @@ const Index = () => {
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [tomorrowFajr, setTomorrowFajr] = useState<string | null>(null);
   const [bayramDateKey, setBayramDateKey] = useState<string | null>(null);
+  const [ramadanPeriod, setRamadanPeriod] = useState<import("@/lib/prayer-api").RamadanPeriod | null>(null);
+  const [countdownTarget, setCountdownTarget] = useState<"smart_iftar" | "next_prayer">(() => {
+    const saved = safeStorageGet("countdownTarget");
+    return (saved === "next_prayer" || saved === "smart_iftar") ? saved : "smart_iftar";
+  });
+  const [widgetModalOpen, setWidgetModalOpen] = useState(false);
   const [countdown, setCountdown] = useState<{
     hours: number;
     minutes: number;
@@ -79,6 +86,7 @@ const Index = () => {
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [dropdownOpen]);
+
   const [favoriteCities, setFavoriteCities] = useState<string[]>(() => {
     const saved = safeStorageGet("favoriteCities");
     if (saved) {
@@ -135,6 +143,9 @@ const Index = () => {
     // Yeni veri alınamazsa mevcut veriyi silmeyelim; kullanıcıya boş ekran göstermeyelim.
     if (todayTimes) {
       setPrayerTimes(todayTimes);
+      if (todayTimes.hijri) {
+        setIsRamadan(todayTimes.hijri.isRamadan);
+      }
     }
     setTomorrowFajr(tomorrowTimes?.Fajr ?? null);
     setLoading(false);
@@ -150,14 +161,9 @@ const Index = () => {
 
     const loadReligiousDates = async () => {
       const period = await fetchUpcomingRamadanPeriod(selectedCity, new Date());
-      if (!cancelled) {
-        setBayramDateKey(period?.bayramDateKey ?? null);
-
-        // Determine if it is currently Ramadan
-        const now = new Date();
-        const dateKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-        const isRamadanDay = period?.days?.some(d => d.dateKey === dateKey && d.hijri?.monthNumber === 9);
-        setIsRamadan(!!isRamadanDay);
+      if (!cancelled && period) {
+        setRamadanPeriod(period);
+        setBayramDateKey(period.bayramDateKey ?? null);
       }
     };
 
@@ -198,7 +204,6 @@ const Index = () => {
         return;
       }
 
-      // Genel süre hesabı "sonraki vakte kalan süre" olarak ayarlandı:
       const parseTimeOnDate = (base: Date, time: string) => {
         const [h, m] = time.split(":").map(Number);
         const d = new Date(base);
@@ -206,51 +211,78 @@ const Index = () => {
         return d;
       };
 
-      const prayers: { name: CountdownMode; time: Date }[] = [
-        { name: "Fajr", time: parseTimeOnDate(now, prayerTimes.Fajr) },
-        { name: "Sunrise", time: parseTimeOnDate(now, prayerTimes.Sunrise) },
-        { name: "Dhuhr", time: parseTimeOnDate(now, prayerTimes.Dhuhr) },
-        { name: "Asr", time: parseTimeOnDate(now, prayerTimes.Asr) },
-        { name: "Maghrib", time: parseTimeOnDate(now, prayerTimes.Maghrib) },
-        { name: "Isha", time: parseTimeOnDate(now, prayerTimes.Isha) },
-      ];
+      const maghribToday = parseTimeOnDate(now, prayerTimes.Maghrib);
+      const fajrToday = parseTimeOnDate(now, prayerTimes.Fajr);
+      const maghribEnd = new Date(maghribToday.getTime() + 4 * 60 * 1000);
 
-      let nextPrayer = prayers.find(p => p.time.getTime() > now.getTime());
-
-      if (!nextPrayer) {
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const targetTime = tomorrowFajr
-          ? parseTimeOnDate(tomorrow, tomorrowFajr)
-          : new Date(now.getTime() + 12 * 60 * 60 * 1000); 
-        nextPrayer = { name: "Fajr", time: targetTime };
-      }
-
-      const maghribTime = parseTimeOnDate(now, prayerTimes.Maghrib);
-      const maghribEnd = new Date(maghribTime.getTime() + 4 * 60 * 1000); 
-
-      if (now.getTime() >= maghribTime.getTime() && now.getTime() <= maghribEnd.getTime()) {
+      if (now.getTime() >= maghribToday.getTime() && now.getTime() <= maghribEnd.getTime()) {
         setCountdown({ hours: 0, minutes: 0, seconds: 0, passed: true, mode: "Maghrib" });
         return;
       }
 
-      const diff = nextPrayer.time.getTime() - now.getTime();
+      let targetTime: Date;
+      let targetMode: CountdownMode;
+
+      if (countdownTarget === "smart_iftar") {
+        // İmsak ile Akşam arasında: Hedef İFTAR (Maghrib)
+        if (now.getTime() < maghribToday.getTime() && now.getTime() >= fajrToday.getTime()) {
+          targetTime = maghribToday;
+          targetMode = "Maghrib";
+        } else if (now.getTime() < fajrToday.getTime()) {
+          // Gece yarısından imsaka kadar: Bugünkü İmsak (Sahur)
+          targetTime = fajrToday;
+          targetMode = "Fajr";
+        } else {
+          // Akşamdan gece yarısına kadar: Yarınki İmsak (Sahur)
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          targetTime = tomorrowFajr
+            ? parseTimeOnDate(tomorrow, tomorrowFajr)
+            : new Date(now.getTime() + 8 * 60 * 60 * 1000);
+          targetMode = "Fajr";
+        }
+      } else {
+        // Sıradaki vakit modu
+        const prayers: { name: CountdownMode; time: Date }[] = [
+          { name: "Fajr", time: fajrToday },
+          { name: "Sunrise", time: parseTimeOnDate(now, prayerTimes.Sunrise) },
+          { name: "Dhuhr", time: parseTimeOnDate(now, prayerTimes.Dhuhr) },
+          { name: "Asr", time: parseTimeOnDate(now, prayerTimes.Asr) },
+          { name: "Maghrib", time: maghribToday },
+          { name: "Isha", time: parseTimeOnDate(now, prayerTimes.Isha) },
+        ];
+
+        const nextPrayer = prayers.find((p) => p.time.getTime() > now.getTime());
+
+        if (nextPrayer) {
+          targetTime = nextPrayer.time;
+          targetMode = nextPrayer.name;
+        } else {
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          targetTime = tomorrowFajr
+            ? parseTimeOnDate(tomorrow, tomorrowFajr)
+            : new Date(now.getTime() + 12 * 60 * 60 * 1000);
+          targetMode = "Fajr";
+        }
+      }
+
+      const diff = Math.max(0, targetTime.getTime() - now.getTime());
       setCountdown({
         hours: Math.floor(diff / (1000 * 60 * 60)),
         minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
         seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        mode: nextPrayer.name,
-        passed: false
+        mode: targetMode,
+        passed: false,
       });
     };
 
     const interval = setInterval(() => {
-      // Akşam ezanı bittikten sonra otomatik olarak imsaka (sahur bitimine) kalan süreyi göster.
       updateCountdown();
     }, 1000);
     updateCountdown();
     return () => clearInterval(interval);
-  }, [prayerTimes, tomorrowFajr, bayramDateKey]);
+  }, [prayerTimes, tomorrowFajr, bayramDateKey, countdownTarget]);
 
   const handleLocate = () => {
     if (!navigator.geolocation) return;
@@ -431,7 +463,6 @@ const Index = () => {
 
             <NotificationManager
               prayerTimes={prayerTimes || undefined}
-
               isRamadan={isRamadan}
               city={selectedCity}
             />
@@ -462,6 +493,36 @@ const Index = () => {
 
         {/* Countdown */}
         <div className="mb-10 text-center">
+          {/* Countdown Target Switcher */}
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <button
+              onClick={() => {
+                setCountdownTarget("smart_iftar");
+                safeStorageSet("countdownTarget", "smart_iftar");
+              }}
+              className={`text-xs px-3 py-1.5 rounded-full transition-all ${
+                countdownTarget === "smart_iftar"
+                  ? "bg-gold/20 text-gold border border-gold/40 font-medium shadow-[0_0_10px_rgba(212,175,55,0.15)]"
+                  : "text-cream-muted hover:text-gold border border-transparent"
+              }`}
+            >
+              🌙 İftar / Sahur Sayacı
+            </button>
+            <button
+              onClick={() => {
+                setCountdownTarget("next_prayer");
+                safeStorageSet("countdownTarget", "next_prayer");
+              }}
+              className={`text-xs px-3 py-1.5 rounded-full transition-all ${
+                countdownTarget === "next_prayer"
+                  ? "bg-gold/20 text-gold border border-gold/40 font-medium shadow-[0_0_10px_rgba(212,175,55,0.15)]"
+                  : "text-cream-muted hover:text-gold border border-transparent"
+              }`}
+            >
+              ⏰ Sıradaki Vakit
+            </button>
+          </div>
+
           <h2 className="font-display text-xl md:text-2xl text-gold-light mb-6">
             {countdown.mode === "bayram"
               ? (countdown.passed ? "Bayram Günü" : "Bayramın Bitimine Kalan Süre")
@@ -491,7 +552,12 @@ const Index = () => {
           ) : countdown.passed && countdown.mode === "Maghrib" ? (
             <div className="text-2xl md:text-3xl font-display text-gold">Hayırlı İftarlar! 🌙</div>
           ) : (
-            <div className="flex items-center gap-3 md:gap-4 justify-center">
+            <div
+              className="flex items-center gap-3 md:gap-4 justify-center"
+              role="timer"
+              aria-live="polite"
+              aria-atomic="true"
+            >
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.hours || 0)}</div>
                 <span className="text-xs text-cream-muted mt-2 block">Saat</span>
@@ -550,10 +616,16 @@ const Index = () => {
         <DailyContentCard />
 
         {/* Imsakiye */}
-        <Imsakiye city={selectedCity} />
+        <Imsakiye city={selectedCity} period={ramadanPeriod} />
 
         {/* Footer */}
-        <footer className="mt-1.5 mb-2 text-center">
+        <footer className="mt-4 mb-2 text-center flex flex-col items-center gap-2">
+          <button
+            onClick={() => setWidgetModalOpen(true)}
+            className="text-xs text-gold/80 hover:text-gold underline transition-colors"
+          >
+            Sitenize İftar Sayacı Ekleyin (Widget)
+          </button>
           <p className="text-xs text-cream-muted/50">
             Bu bir{" "}
             <a
@@ -567,6 +639,39 @@ const Index = () => {
             ürünüdür
           </p>
         </footer>
+
+        {/* Widget Modal */}
+        {widgetModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
+            <div className="glass-card gold-border p-6 max-w-md w-full relative shadow-2xl">
+              <button
+                onClick={() => setWidgetModalOpen(false)}
+                className="absolute top-4 right-4 text-cream-muted hover:text-gold transition-colors text-lg"
+                aria-label="Kapat"
+              >
+                ✕
+              </button>
+              <h3 className="text-lg font-display text-gold font-bold mb-2">
+                Web Sitenize İftar Sayacı Ekleyin
+              </h3>
+              <p className="text-xs text-cream-muted mb-4">
+                Aşağıdaki kodu web sitenizin dilediğiniz bölümüne ekleyerek canlı iftar sayacını sitenizde gösterebilirsiniz:
+              </p>
+              <div className="bg-black/60 p-3 rounded-xl border border-white/10 font-mono text-[11px] text-cream select-all break-all mb-4">
+                {`<iframe src="https://iftarsaati.netlify.app/widget?city=${encodeURIComponent(selectedCity.name)}" width="300" height="220" frameborder="0" style="border:none; overflow:hidden;" scrolling="no"></iframe>`}
+              </div>
+              <button
+                onClick={() => {
+                  const code = `<iframe src="https://iftarsaati.netlify.app/widget?city=${encodeURIComponent(selectedCity.name)}" width="300" height="220" frameborder="0" style="border:none; overflow:hidden;" scrolling="no"></iframe>`;
+                  navigator.clipboard.writeText(code);
+                }}
+                className="w-full glass-card gold-border py-2 text-sm text-gold hover:bg-gold/10 transition-colors font-medium"
+              >
+                Kodu Kopyala
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

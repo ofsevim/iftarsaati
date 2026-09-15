@@ -4,10 +4,9 @@ import "./index.css";
 
 function isProblematicBrowser(): boolean {
   const ua = navigator.userAgent || "";
-  const isIOS = /iPad|iPhone|iPod/i.test(ua);
-  const isSafari = /Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
+  // Sadece çok eski Android Chrome sürümleri (v79 altı) için SW devre dışı bırakılır
   const isOldAndroidChrome = /Android/i.test(ua) && /Chrome\/([0-6][0-9]|7[0-9])\./i.test(ua);
-  return (isIOS && isSafari) || isOldAndroidChrome;
+  return Boolean(isOldAndroidChrome);
 }
 
 async function cleanupServiceWorkersAndCaches() {
