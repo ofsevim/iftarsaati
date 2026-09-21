@@ -1,6 +1,6 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import { BookOpen, Lightbulb, Scroll } from "lucide-react";
-import { DAILY_DUAS, DAILY_REMINDERS, type DailyContentItem } from "@/data/daily-content";
+import { BookOpen, Scroll } from "lucide-react";
+import { DAILY_DUAS, type DailyContentItem } from "@/data/daily-content";
 import { fetchDailyAyah, type AyahData } from "@/lib/quran-api";
 
 function getDailyIndex(now: Date, size: number): number {
@@ -11,7 +11,7 @@ function getDailyIndex(now: Date, size: number): number {
   return size === 0 ? 0 : seed % size;
 }
 
-const TABS = ["dua", "hatirlatma", "ayet"] as const;
+const TABS = ["dua", "ayet"] as const;
 type Tab = (typeof TABS)[number];
 
 const DailyContentCard = () => {
@@ -22,14 +22,8 @@ const DailyContentCard = () => {
   const touchStartX = useRef<number | null>(null);
 
   const duaIndex = getDailyIndex(now, DAILY_DUAS.length);
-  const reminderIndex = getDailyIndex(now, DAILY_REMINDERS.length);
 
-  const item: DailyContentItem | null =
-    tab === "dua"
-      ? DAILY_DUAS[duaIndex]
-      : tab === "hatirlatma"
-        ? DAILY_REMINDERS[reminderIndex]
-        : null;
+  const item: DailyContentItem | null = tab === "dua" ? DAILY_DUAS[duaIndex] : null;
 
   useEffect(() => {
     if (tab !== "ayet" || ayah !== null) return;
@@ -64,9 +58,9 @@ const DailyContentCard = () => {
   };
 
   const tabStyle = (t: Tab) =>
-    `flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all flex-1 justify-center ${
+    `flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center touch-manipulation active:scale-[0.98] ${
       tab === t
-        ? "bg-[hsl(36,55%,55%,0.15)] text-gold border border-[hsl(36,55%,55%,0.3)]"
+        ? "bg-[hsl(36,55%,55%,0.15)] text-gold border border-[hsl(36,55%,55%,0.3)] shadow-[0_0_10px_rgba(212,175,55,0.1)]"
         : "text-cream-muted hover:text-gold"
     }`;
 
@@ -78,17 +72,13 @@ const DailyContentCard = () => {
         onTouchEnd={handleTouchEnd}
       >
         {/* Tab buttons */}
-        <div className="flex gap-1.5 mb-3">
+        <div className="flex gap-2 mb-4">
           <button onClick={() => setTab("dua")} className={tabStyle("dua")}>
-            <BookOpen className="w-3.5 h-3.5" />
+            <BookOpen className="w-4 h-4" />
             Günün Duası
           </button>
-          <button onClick={() => setTab("hatirlatma")} className={tabStyle("hatirlatma")}>
-            <Lightbulb className="w-3.5 h-3.5" />
-            Hatırlatma
-          </button>
           <button onClick={() => setTab("ayet")} className={tabStyle("ayet")}>
-            <Scroll className="w-3.5 h-3.5" />
+            <Scroll className="w-4 h-4" />
             Günün Ayeti
           </button>
         </div>

@@ -450,7 +450,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     <div className="relative">
       <button
         onClick={() => setShowSettings(!showSettings)}
-        className="glass-card gold-border p-2.5 flex items-center gap-1.5 text-xs transition-colors hover:text-gold"
+        className="glass-card gold-border p-2.5 min-h-[42px] min-w-[42px] flex items-center justify-center gap-1.5 text-xs transition-all hover:text-gold touch-manipulation active:scale-95"
         aria-label="Bildirim ayarlari"
         title="Bildirim ayarlari"
       >
@@ -465,7 +465,11 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
         <div className="absolute top-full mt-2 right-0 w-72 max-w-[calc(100vw-2rem)] bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-cream">Bildirimler</span>
-            <button onClick={() => setShowSettings(false)} className="text-cream-muted hover:text-gold">
+            <button
+              onClick={() => setShowSettings(false)}
+              className="p-1.5 text-cream-muted hover:text-gold transition-colors touch-manipulation flex items-center justify-center min-w-[32px] min-h-[32px]"
+              aria-label="Bildirim ayarlarını kapat"
+            >
               <X className="w-4 h-4" />
             </button>
           </div>

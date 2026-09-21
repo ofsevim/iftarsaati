@@ -162,7 +162,7 @@
   }
 
   .quick-btn {
-    @apply glass-card gold-border px-4 py-2 text-sm font-medium transition-all duration-200 cursor-pointer;
+    @apply glass-card gold-border px-4 py-2 text-sm font-medium transition-all duration-200 cursor-pointer touch-manipulation select-none active:scale-95;
     color: hsl(var(--cream-muted));
   }
 
@@ -178,6 +178,15 @@
     background: rgba(36, 55, 55, 0.12);
     @apply gold-glow;
   }
+}
+
+/* Safe area utilities for mobile devices */
+.safe-top {
+  padding-top: max(1.5rem, env(safe-area-inset-top, 0px));
+}
+
+.safe-bottom {
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
 }
 
 @keyframes slide-in-from-bottom {

@@ -88,11 +88,11 @@ const InstallPrompt = () => {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 animate-in slide-in-from-bottom-5">
+    <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 animate-in slide-in-from-bottom-5">
       <div className="glass-card gold-border p-4 shadow-2xl relative">
         <button
           onClick={handleDismiss}
-          className="absolute top-2 right-2 text-cream-muted hover:text-gold transition-colors"
+          className="absolute top-2 right-2 p-1.5 text-cream-muted hover:text-gold transition-colors touch-manipulation flex items-center justify-center min-w-[32px] min-h-[32px]"
           aria-label="Kapat"
         >
           <X className="w-4 h-4" />
@@ -124,7 +124,7 @@ const InstallPrompt = () => {
             </div>
             <button
               onClick={handleDismiss}
-              className="w-full glass-card gold-border px-4 py-2 text-xs font-medium text-gold hover:bg-gold/10 transition-colors"
+              className="w-full glass-card gold-border px-4 py-2.5 text-xs font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation active:scale-98"
             >
               Anladım
             </button>
@@ -132,7 +132,7 @@ const InstallPrompt = () => {
         ) : (
           <button
             onClick={handleInstall}
-            className="w-full glass-card gold-border px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium text-gold hover:bg-gold/10 transition-colors"
+            className="w-full glass-card gold-border px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation active:scale-98"
           >
             <Download className="w-4 h-4" />
             Yükle

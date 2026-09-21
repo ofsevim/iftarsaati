@@ -361,7 +361,7 @@ const Index = () => {
       </svg>
 
       {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 py-8 md:py-12">
+      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(2rem+env(safe-area-inset-bottom,0px))] md:py-12">
         {/* Header */}
         <div className="text-center mb-8 md:mb-12">
           <div className="flex items-center justify-center gap-3 mb-3">
@@ -400,7 +400,7 @@ const Index = () => {
             <button
               onClick={handleLocate}
               disabled={locating}
-              className="glass-card gold-border px-3 sm:px-4 py-2.5 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream-muted hover:text-gold transition-colors cursor-pointer shrink-0"
+              className="glass-card gold-border px-3 sm:px-4 py-2.5 min-h-[42px] flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream-muted hover:text-gold transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95"
             >
               <MapPin className="w-3.5 h-3.5 sm:w-4 h-4" />
               <span className="whitespace-nowrap">{locating ? "..." : "Konum"}</span>
@@ -409,7 +409,7 @@ const Index = () => {
             <div className="relative flex-grow max-w-[200px]" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="glass-card gold-border px-3 sm:px-4 py-2.5 flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream w-full justify-between"
+                className="glass-card gold-border px-3 sm:px-4 py-2.5 min-h-[42px] flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream w-full justify-between touch-manipulation active:scale-[0.99]"
               >
                 <span className="truncate">{selectedCity.name}</span>
                 <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
@@ -446,7 +446,8 @@ const Index = () => {
                           </span>
                           <button
                             onClick={(e) => toggleFavorite(city.name, e)}
-                            className="p-1 hover:text-gold transition-colors"
+                            className="p-2 -mr-1 text-muted-foreground hover:text-gold transition-colors touch-manipulation flex items-center justify-center min-w-[36px] min-h-[36px]"
+                            aria-label={`${city.name} şehrini favorilere ${isFavorite ? "çıkar" : "ekle"}`}
                           >
                             <Star
                               className={`w-4 h-4 ${isFavorite ? "text-gold fill-gold" : "text-muted-foreground"
@@ -473,7 +474,7 @@ const Index = () => {
                 setAzanEnabled(newVal);
                 safeStorageSet("azanEnabled", String(newVal));
               }}
-              className="glass-card gold-border p-2.5 flex items-center transition-colors hover:text-gold"
+              className="glass-card gold-border p-2.5 min-h-[42px] min-w-[42px] flex items-center justify-center transition-all hover:text-gold touch-manipulation active:scale-95"
               aria-label={azanEnabled ? "Ezan sesini kapat" : "Ezan sesini aç"}
               title={azanEnabled ? "Ezan sesini kapat" : "Ezan sesini aç"}
             >
@@ -500,7 +501,7 @@ const Index = () => {
                 setCountdownTarget("smart_iftar");
                 safeStorageSet("countdownTarget", "smart_iftar");
               }}
-              className={`text-xs px-3 py-1.5 rounded-full transition-all ${
+              className={`text-xs px-3 py-1.5 rounded-full transition-all touch-manipulation active:scale-95 ${
                 countdownTarget === "smart_iftar"
                   ? "bg-gold/20 text-gold border border-gold/40 font-medium shadow-[0_0_10px_rgba(212,175,55,0.15)]"
                   : "text-cream-muted hover:text-gold border border-transparent"
@@ -513,7 +514,7 @@ const Index = () => {
                 setCountdownTarget("next_prayer");
                 safeStorageSet("countdownTarget", "next_prayer");
               }}
-              className={`text-xs px-3 py-1.5 rounded-full transition-all ${
+              className={`text-xs px-3 py-1.5 rounded-full transition-all touch-manipulation active:scale-95 ${
                 countdownTarget === "next_prayer"
                   ? "bg-gold/20 text-gold border border-gold/40 font-medium shadow-[0_0_10px_rgba(212,175,55,0.15)]"
                   : "text-cream-muted hover:text-gold border border-transparent"
@@ -646,7 +647,7 @@ const Index = () => {
             <div className="glass-card gold-border p-6 max-w-md w-full relative shadow-2xl">
               <button
                 onClick={() => setWidgetModalOpen(false)}
-                className="absolute top-4 right-4 text-cream-muted hover:text-gold transition-colors text-lg"
+                className="absolute top-3 right-3 p-2 text-cream-muted hover:text-gold transition-colors text-lg touch-manipulation flex items-center justify-center min-w-[36px] min-h-[36px]"
                 aria-label="Kapat"
               >
                 ✕
