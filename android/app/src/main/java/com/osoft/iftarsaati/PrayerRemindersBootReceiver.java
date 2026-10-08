@@ -11,6 +11,9 @@ public class PrayerRemindersBootReceiver extends BroadcastReceiver {
 
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             ReminderSchedulerPlugin.reschedulePersistedReminders(context);
+            if (ReminderSchedulerPlugin.getRenewalConfig(context) != null) {
+                PrayerReminderRefreshJobService.ensureScheduled(context);
+            }
         }
     }
 }

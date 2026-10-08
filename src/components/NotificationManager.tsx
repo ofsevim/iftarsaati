@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Bell, BellOff, X, BellRing } from "lucide-react";
 import { Capacitor, registerPlugin } from "@capacitor/core";
-import { fetchPrayerTimesForDate } from "@/lib/prayer-api";
+import { fetchPrayerTimesForDate, type PrayerTimesWithMeta } from "@/lib/prayer-api";
 import type { City, PrayerTimes } from "@/data/cities";
 import { PRAYER_LABELS } from "@/data/cities";
 
@@ -29,7 +29,11 @@ type ReminderSchedulerStatus = {
 type NativeSettingsScreen = "notifications" | "exactAlarms";
 
 type ReminderSchedulerPlugin = {
-  scheduleReminders(options: { notifications: ScheduledNotification[] }): Promise<void>;
+  scheduleReminders(options: {
+    notifications: ScheduledNotification[];
+    renewal: { city: string; lat: number; lng: number; minutes: NotifPref["minutes"] };
+  }): Promise<void>;
+  scheduleTestReminder(options: { notification: ScheduledNotification }): Promise<void>;
   cancelAll(): Promise<void>;
   getStatus(): Promise<ReminderSchedulerStatus>;
   requestPermission(): Promise<ReminderSchedulerStatus>;
@@ -38,6 +42,7 @@ type ReminderSchedulerPlugin = {
 
 const ReminderScheduler = registerPlugin<ReminderSchedulerPlugin>("ReminderScheduler");
 const webTimerIds: number[] = [];
+let scheduleEpoch = 0;
 
 const DEFAULT_PREF: NotifPref = {
   enabled: false,
@@ -135,7 +140,7 @@ async function buildNotifications(
     }
 
     if (!times) {
-      continue;
+      return [];
     }
 
     for (const key of keys) {
@@ -160,17 +165,18 @@ async function buildNotifications(
 
       const isIftar = key === "Maghrib";
       const isSahur = key === "Fajr";
-      const label = isIftar && isRamadan ? "Iftar" : isSahur && isRamadan ? "Sahur" : PRAYER_LABELS[key];
+      const dayIsRamadan = i === 0 ? isRamadan : (times as PrayerTimesWithMeta).hijri?.isRamadan ?? isRamadan;
+      const label = isIftar && dayIsRamadan ? "Iftar" : isSahur && dayIsRamadan ? "Sahur" : PRAYER_LABELS[key];
 
       let title = `${label} Vakti`;
       let body = `${city.name} icin ${label.toLowerCase()} vaktine ${mins} dakika kaldi.`;
       let channel: ScheduledNotification["channel"] = "main";
 
-      if (isIftar && isRamadan) {
+      if (isIftar && dayIsRamadan) {
         title = "Iftar Yaklasiyor";
         body = `${city.name} icin iftara ${mins} dakika kaldi.`;
         channel = "special";
-      } else if (isSahur && isRamadan) {
+      } else if (isSahur && dayIsRamadan) {
         title = "Sahur Vakti";
         body = `${city.name} icin sahura ${mins} dakika kaldi.`;
         channel = "special";
@@ -193,16 +199,25 @@ async function scheduleNotifications(
   pref: NotifPref,
   city: City,
   todayTimes: PrayerTimes | undefined,
-  isRamadan: boolean | undefined
-): Promise<number> {
+  isRamadan: boolean | undefined,
+  isCurrent: () => boolean
+): Promise<number | null> {
   const notifications = await buildNotifications(pref, city, todayTimes, isRamadan);
+  if (!isCurrent()) return null;
 
-  if (isNativePlatform()) {
-    if (notifications.length === 0) {
-      await ReminderScheduler.cancelAll();
+  if (notifications.length === 0) {
+    if (Object.values(pref.minutes).every((minutes) => minutes < 0)) {
+      await cancelScheduledNotifications();
       return 0;
     }
-    await ReminderScheduler.scheduleReminders({ notifications });
+    return null;
+  }
+
+  if (isNativePlatform()) {
+    await ReminderScheduler.scheduleReminders({
+      notifications,
+      renewal: { city: city.name, lat: city.lat, lng: city.lng, minutes: pref.minutes },
+    });
     return notifications.length;
   }
 
@@ -237,24 +252,22 @@ async function scheduleNotifications(
 
 async function sendTestNotification() {
   if (isNativePlatform()) {
-    await ReminderScheduler.scheduleReminders({
-      notifications: [
-        {
-          id: 99999901,
-          title: "IftarSaati App Test",
-          body: "Bildirimler calisiyor. Ayarli bildirimler de artik native olarak planlaniyor.",
-          triggerAt: Date.now() + 3000,
-          channel: "main",
-        },
-      ],
+    await ReminderScheduler.scheduleTestReminder({
+      notification: {
+        id: 99999901,
+        title: "Vakt-i Şerif Test",
+        body: "Bildirimler çalışıyor.",
+        triggerAt: Date.now() + 3000,
+        channel: "main",
+      },
     });
     return;
   }
 
   window.setTimeout(() => {
     try {
-      new Notification("IftarSaati App Test", {
-        body: "Bildirimler calisiyor. Ayarli web bildirimleri de bu yolla tetiklenecek.",
+      new Notification("Vakt-i Şerif Test", {
+        body: "Bildirimler çalışıyor. Ayarlı web bildirimleri de bu yolla tetiklenecek.",
         icon: "/icon-192.png",
         badge: "/favicon-48.png",
         tag: "web-test-notification",
@@ -294,8 +307,8 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
   const [showSettings, setShowSettings] = useState(false);
   const [testSent, setTestSent] = useState(false);
   const [scheduled, setScheduled] = useState<number>(0);
-  const [permission, setPermission] = useState<AppNotificationPermission>(() =>
-    isNativePlatform() ? "default" : getWebPermissionState()
+  const [permission, setPermission] = useState<AppNotificationPermission | null>(() =>
+    isNativePlatform() ? null : getWebPermissionState()
   );
   const [schedulerStatus, setSchedulerStatus] = useState<ReminderSchedulerStatus | null>(null);
 
@@ -341,7 +354,9 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
   }, []);
 
   useEffect(() => {
+    if (permission === null) return;
     if (!pref.enabled || permission !== "granted" || !canNotify()) {
+      scheduleEpoch++;
       void cancelScheduledNotifications().catch((error) => {
         console.error("Bildirim iptal hatasi:", error);
       });
@@ -350,22 +365,32 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     }
 
     let cancelled = false;
-
-    scheduleNotifications(pref, city, prayerTimes, isRamadan)
-      .then((count) => {
-        if (!cancelled) {
-          setScheduled(count);
-        }
-      })
-      .catch((error) => {
-        console.error("Bildirim planlama hatasi:", error);
-        if (!cancelled) {
-          setScheduled(0);
-        }
-      });
+    const renew = () => {
+      const epoch = ++scheduleEpoch;
+      const isCurrent = () => !cancelled && epoch === scheduleEpoch;
+      scheduleNotifications(pref, city, prayerTimes, isRamadan, isCurrent)
+        .then((count) => {
+          if (isCurrent() && count !== null) setScheduled(count);
+        })
+        .catch((error) => {
+          console.error("Bildirim planlama hatasi:", error);
+          if (isCurrent()) setScheduled(0);
+        });
+    };
+    renew();
+    const refreshTimer = window.setInterval(renew, 24 * 60 * 60 * 1000);
+    const refreshWhenVisible = () => {
+      if (!document.hidden) renew();
+    };
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    window.addEventListener("focus", refreshWhenVisible);
 
     return () => {
       cancelled = true;
+      scheduleEpoch++;
+      window.clearInterval(refreshTimer);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      window.removeEventListener("focus", refreshWhenVisible);
     };
   }, [pref, permission, prayerTimes, city, isRamadan]);
 

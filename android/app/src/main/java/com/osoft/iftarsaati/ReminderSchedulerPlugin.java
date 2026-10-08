@@ -2,9 +2,9 @@ package com.osoft.iftarsaati;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.ActivityNotFoundException;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -44,6 +44,8 @@ public class ReminderSchedulerPlugin extends Plugin {
     private static final String IDS_KEY = "ids";
     private static final String PAYLOADS_KEY = "payloads";
     private static final String NOTIFICATION_ALIAS = "notifications";
+    private static final String RENEWAL_PREFS_NAME = "prayer_reminder_renewal";
+    private static final String RENEWAL_KEY = "config";
 
     @PluginMethod
     public void getStatus(PluginCall call) {
@@ -63,7 +65,45 @@ public class ReminderSchedulerPlugin extends Plugin {
     @PluginMethod
     public void scheduleReminders(PluginCall call) {
         JSArray reminders = call.getArray("notifications", new JSArray());
+        JSObject renewal = call.getObject("renewal");
+        if (renewal == null) {
+            call.reject("Renewal configuration is required");
+            return;
+        }
         scheduleRemindersInternal(getContext(), reminders);
+        getContext().getSharedPreferences(RENEWAL_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(RENEWAL_KEY, renewal.toString()).apply();
+        PrayerReminderRefreshJobService.ensureScheduled(getContext());
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void scheduleTestReminder(PluginCall call) {
+        JSObject notification = call.getObject("notification");
+        if (notification == null) {
+            call.reject("Notification is required");
+            return;
+        }
+        AlarmManager alarmManager = (AlarmManager) getContext().getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager == null) {
+            call.reject("AlarmManager is unavailable");
+            return;
+        }
+        int id = notification.optInt("id", 99999901);
+        long triggerAt = notification.optLong("triggerAt", 0L);
+        if (triggerAt <= System.currentTimeMillis()) {
+            call.reject("Test alarm must be in the future");
+            return;
+        }
+        Intent intent = new Intent(getContext(), PrayerReminderReceiver.class);
+        intent.putExtra("reminderId", id);
+        intent.putExtra("title", notification.optString("title", "Vakt-i Şerif Test"));
+        intent.putExtra("body", notification.optString("body", "Bildirimler çalışıyor."));
+        intent.putExtra("channel", notification.optString("channel", "main"));
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+                getContext(), id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        scheduleAlarm(alarmManager, triggerAt, pendingIntent);
         call.resolve();
     }
 
@@ -94,10 +134,13 @@ public class ReminderSchedulerPlugin extends Plugin {
     @PluginMethod
     public void cancelAll(PluginCall call) {
         cancelAllInternal();
+        getContext().getSharedPreferences(RENEWAL_PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().remove(RENEWAL_KEY).apply();
+        PrayerReminderRefreshJobService.cancelScheduled(getContext());
         call.resolve();
     }
 
-    private static void scheduleRemindersInternal(Context context, JSONArray reminders) {
+    static synchronized void scheduleRemindersInternal(Context context, JSONArray reminders) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) {
             return;
@@ -113,8 +156,8 @@ public class ReminderSchedulerPlugin extends Plugin {
                 JSONObject item = reminders.getJSONObject(i);
                 int id = item.optInt("id", 0);
                 long triggerAt = item.optLong("triggerAt", 0L);
-                String title = item.optString("title", "IftarSaati App");
-                String body = item.optString("body", "Vakiti takip et");
+                String title = item.optString("title", "Vakt-i Şerif");
+                String body = item.optString("body", "Namaz vaktini takip edin.");
                 String channel = item.optString("channel", "main");
 
                 if (id == 0 || triggerAt <= System.currentTimeMillis()) {
@@ -153,7 +196,7 @@ public class ReminderSchedulerPlugin extends Plugin {
         cancelAllInternal(getContext());
     }
 
-    private static void cancelAllInternal(Context context) {
+    private static synchronized void cancelAllInternal(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarmManager == null) {
             return;
@@ -246,6 +289,17 @@ public class ReminderSchedulerPlugin extends Plugin {
             return new JSONArray(rawPayloads);
         } catch (JSONException ignored) {
             return new JSONArray();
+        }
+    }
+
+    static JSONObject getRenewalConfig(Context context) {
+        String raw = context.getSharedPreferences(RENEWAL_PREFS_NAME, Context.MODE_PRIVATE)
+                .getString(RENEWAL_KEY, null);
+        if (raw == null) return null;
+        try {
+            return new JSONObject(raw);
+        } catch (JSONException ignored) {
+            return null;
         }
     }
 

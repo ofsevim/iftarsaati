@@ -102,10 +102,10 @@
   <g filter="url(#textGlow)">
     <text x="620" y="260" 
           font-family="Georgia, 'Times New Roman', serif" 
-          font-size="96" 
+          font-size="72"
           font-weight="bold" 
           fill="url(#goldGrad)" 
-          letter-spacing="4">İFTAR VAKTİ</text>
+          letter-spacing="3">VAKT-İ ŞERİF</text>
   </g>
   
   <!-- Alt başlık -->
@@ -114,7 +114,7 @@
         font-size="36" 
         fill="#c9a961" 
         opacity="0.85"
-        letter-spacing="6">RAMAZANİMSAKİYESİ 2026</text>
+        letter-spacing="5">RAMAZAN İMSAKİYESİ</text>
   
   <!-- Ayırıcı -->
   <line x1="620" y1="350" x2="920" y2="350" stroke="#c9a961" stroke-width="1" opacity="0.3"/>

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Vakt-i Şerif</string>
+    <string name="title_activity_main">Vakt-i Şerif</string>
+    <string name="package_name">com.osoft.iftarsaati</string>
+    <string name="custom_url_scheme">com.osoft.iftarsaati</string>
+</resources>

@@ -10,6 +10,7 @@ import {
 interface ImsakiyeProps {
   city: City;
   period?: RamadanPeriod | null;
+  todayKey?: string;
 }
 
 function formatDateRangeLabel(period: RamadanPeriod): string {
@@ -22,7 +23,7 @@ function formatDateRangeLabel(period: RamadanPeriod): string {
   return `${startLabel} - ${endLabel}`;
 }
 
-const Imsakiye = ({ city, period: propPeriod }: ImsakiyeProps) => {
+const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
   const [internalPeriod, setInternalPeriod] = useState<RamadanPeriod | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -49,9 +50,10 @@ const Imsakiye = ({ city, period: propPeriod }: ImsakiyeProps) => {
   const days = period?.days ?? [];
 
   const todayStr = useMemo(() => {
+    if (todayKey) return todayKey;
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  }, []);
+  }, [todayKey]);
 
   const prayerKeys: (keyof PrayerTimes)[] = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
 
@@ -72,7 +74,8 @@ const Imsakiye = ({ city, period: propPeriod }: ImsakiyeProps) => {
   };
 
   const handleShare = () => {
-    const text = `${city.name} 2026 Ramazan İmsakiyesi ve İftar Vakitleri: https://iftarsaati.netlify.app/`;
+    const year = period?.startDateKey.slice(0, 4) ?? "";
+    const text = `${city.name} ${year} Ramazan İmsakiyesi ve İftar Vakitleri: https://iftarsaati.netlify.app/`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
 

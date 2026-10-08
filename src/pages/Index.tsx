@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MapPin, Search, ChevronDown, Moon, Star, Volume2, VolumeX } from "lucide-react";
 import Imsakiye from "@/components/Imsakiye";
 import DailyContentCard from "@/components/DailyContentCard";
@@ -13,12 +13,11 @@ import {
   type PrayerTimes,
 } from "@/data/cities";
 import {
-  fetchPrayerTimes,
-  fetchPrayerTimesForDate,
   fetchUpcomingRamadanPeriod,
   findNearestCity,
 } from "@/lib/prayer-api";
 import { normalizeForSearch } from "@/lib/utils";
+import { usePrayerDay } from "@/hooks/use-prayer-day";
 
 type CountdownMode = "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha" | "bayram";
 
@@ -48,10 +47,14 @@ const Index = () => {
     }
     return TURKEY_CITIES.find((c) => c.name === "İstanbul")!;
   });
-  const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
-  const [tomorrowFajr, setTomorrowFajr] = useState<string | null>(null);
-  const [bayramDateKey, setBayramDateKey] = useState<string | null>(null);
-  const [ramadanPeriod, setRamadanPeriod] = useState<import("@/lib/prayer-api").RamadanPeriod | null>(null);
+  const { prayerTimes, tomorrowFajr, isRamadan, loading, dateKey } = usePrayerDay(selectedCity);
+  const [ramadanData, setRamadanData] = useState<{
+    key: string;
+    period: import("@/lib/prayer-api").RamadanPeriod | null;
+  } | null>(null);
+  const ramadanKey = `${selectedCity.name}:${dateKey}`;
+  const ramadanPeriod = ramadanData?.key === ramadanKey ? ramadanData.period : null;
+  const bayramDateKey = ramadanPeriod?.bayramDateKey ?? null;
   const [countdownTarget, setCountdownTarget] = useState<"smart_iftar" | "next_prayer">(() => {
     const saved = safeStorageGet("countdownTarget");
     return (saved === "next_prayer" || saved === "smart_iftar") ? saved : "smart_iftar";
@@ -64,8 +67,6 @@ const Index = () => {
     passed: boolean;
     mode: CountdownMode;
   }>({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "Maghrib" });
-  const [isRamadan, setIsRamadan] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [locating, setLocating] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,49 +130,23 @@ const Index = () => {
     }
   }, [countdown.passed, countdown.mode, azanEnabled]);
 
-  const loadPrayerTimes = useCallback(async (city: City) => {
-    setLoading(true);
-    const today = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(today.getDate() + 1);
-
-    const [todayTimes, tomorrowTimes] = await Promise.all([
-      fetchPrayerTimes(city),
-      fetchPrayerTimesForDate(city, tomorrow),
-    ]);
-
-    // Yeni veri alınamazsa mevcut veriyi silmeyelim; kullanıcıya boş ekran göstermeyelim.
-    if (todayTimes) {
-      setPrayerTimes(todayTimes);
-      if (todayTimes.hijri) {
-        setIsRamadan(todayTimes.hijri.isRamadan);
-      }
-    }
-    setTomorrowFajr(tomorrowTimes?.Fajr ?? null);
-    setLoading(false);
-  }, []);
-
   useEffect(() => {
-    loadPrayerTimes(selectedCity);
     safeStorageSet("selectedCity", selectedCity.name);
-  }, [selectedCity, loadPrayerTimes]);
+  }, [selectedCity]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadReligiousDates = async () => {
       const period = await fetchUpcomingRamadanPeriod(selectedCity, new Date());
-      if (!cancelled && period) {
-        setRamadanPeriod(period);
-        setBayramDateKey(period.bayramDateKey ?? null);
-      }
+      if (!cancelled) setRamadanData({ key: ramadanKey, period });
     };
 
     loadReligiousDates();
     return () => {
       cancelled = true;
     };
-  }, [selectedCity]);
+  }, [selectedCity, dateKey, ramadanKey]);
 
   useEffect(() => {
     if (!prayerTimes) return;
@@ -617,7 +592,7 @@ const Index = () => {
         <DailyContentCard />
 
         {/* Imsakiye */}
-        <Imsakiye city={selectedCity} period={ramadanPeriod} />
+        <Imsakiye city={selectedCity} period={ramadanPeriod} todayKey={dateKey} />
 
         {/* Footer */}
         <footer className="mt-4 mb-2 text-center flex flex-col items-center gap-2">

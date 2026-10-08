@@ -108,8 +108,8 @@ const InstallPrompt = () => {
             </h3>
             <p className="text-sm text-cream-muted">
               {isIOSDevice
-                ? "İftar Vakti'ni ana ekranınıza ekleyerek tek tıkla erişin"
-                : "İftar Vakti'ni telefonunuza yükleyerek hızlı erişim sağlayın"}
+                ? "Vakt-i Şerif'i ana ekranınıza ekleyerek tek tıkla erişin"
+                : "Vakt-i Şerif'i telefonunuza yükleyerek hızlı erişim sağlayın"}
             </p>
           </div>
         </div>

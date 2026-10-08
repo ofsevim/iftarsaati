@@ -1,4 +1,4 @@
-# İftar Vakti - Ramazan İmsakiyesi 2026
+# Vakt-i Şerif - Namaz Vakitleri ve Ramazan İmsakiyesi
 
 Türkiye için modern, kullanıcı dostu Ramazan imsakiyesi ve namaz vakitleri uygulaması.
 
@@ -7,10 +7,10 @@ Türkiye için modern, kullanıcı dostu Ramazan imsakiyesi ve namaz vakitleri u
 - **İftar Geri Sayımı**: Akşam namazına kalan süreyi gerçek zamanlı gösterir
 - **81 İl Desteği**: Türkiye'nin tüm illeri için namaz vakitleri
 - **Konum Bazlı**: GPS ile otomatik şehir tespiti
-- **Aylık İmsakiye**: 2026 Ramazan ayı için tam imsakiye tablosu
+- **Aylık İmsakiye**: Yaklaşan veya devam eden Ramazan için tam imsakiye tablosu
 - **Kadir Gecesi & Bayram**: Özel günler vurgulanır
 - **PWA Desteği**: Telefonunuza uygulama olarak yüklenebilir
-- **Offline Çalışma**: İnternet bağlantısı olmadan da kullanılabilir
+- **Offline Çalışma**: Önceden açılmış uygulama ve alınmış vakitler, bağlantı olmadan da kullanılabilir
 
 ## 🛠️ Teknolojiler
 
@@ -39,6 +39,20 @@ npm run test
 ## 📱 PWA Kurulumu
 
 Uygulama Progressive Web App olarak tasarlanmıştır. Tarayıcınızdan "Ana Ekrana Ekle" seçeneği ile telefonunuza yükleyebilirsiniz.
+
+## 🤖 Android derlemesi
+
+Android Studio, Android SDK ve Java 21 kurulu bir ortamda:
+
+```bash
+npm install
+npm run build
+npx cap sync android
+cd android
+./gradlew assembleDebug
+```
+
+Oluşan APK `android/app/build/outputs/apk/debug/` dizinindedir. Native bildirimler için uygulama ilk açılışta bildirim izni ister; tam zamanlı alarmlar cihaz ayarlarına bağlıdır.
 
 ## 📄 Lisans
 

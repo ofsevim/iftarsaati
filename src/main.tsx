@@ -36,6 +36,7 @@ async function cleanupServiceWorkersAndCaches() {
 
 // Problemli cihazlarda SW kapalı, diğerlerinde aktif.
 function initServiceWorker() {
+  if (!import.meta.env.PROD) return;
   if (!("serviceWorker" in navigator)) return;
 
   window.addEventListener("load", async () => {

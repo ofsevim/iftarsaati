@@ -8,7 +8,7 @@
   status = 200
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "22"
 
 [[headers]]
   for = "/widget*"
@@ -18,9 +18,13 @@
     X-Content-Type-Options = "nosniff"
 
 [[headers]]
-  for = "/*"
+  for = "/"
   [headers.values]
     X-Frame-Options = "DENY"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
@@ -40,6 +44,11 @@
   [headers.values]
     Content-Type = "image/svg+xml"
     Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
 
 [[headers]]
   for = "/*.js"

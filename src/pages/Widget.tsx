@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Moon } from "lucide-react";
-import { TURKEY_CITIES, type City, type PrayerTimes } from "@/data/cities";
-import { fetchPrayerTimes, fetchPrayerTimesForDate } from "@/lib/prayer-api";
+import { TURKEY_CITIES, type City } from "@/data/cities";
+import { usePrayerDay } from "@/hooks/use-prayer-day";
 
 /**
  * Minimal widget sayfası — iframe ile embed edilebilir.
@@ -18,8 +18,7 @@ const Widget = () => {
     return () => document.body.classList.remove("widget-mode");
   }, []);
 
-  const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
-  const [tomorrowFajr, setTomorrowFajr] = useState<string | null>(null);
+  const { prayerTimes, tomorrowFajr } = usePrayerDay(city);
   const [countdown, setCountdown] = useState<{
     hours: number;
     minutes: number;
@@ -27,20 +26,6 @@ const Widget = () => {
     passed: boolean;
     mode: "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha";
   }>({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "Maghrib" });
-
-  const loadTimes = useCallback(async () => {
-    const today = new Date();
-    const tomorrow = new Date();
-    tomorrow.setDate(today.getDate() + 1);
-    const [todayTimes, tomorrowTimes] = await Promise.all([
-      fetchPrayerTimes(city),
-      fetchPrayerTimesForDate(city, tomorrow),
-    ]);
-    if (todayTimes) setPrayerTimes(todayTimes);
-    setTomorrowFajr(tomorrowTimes?.Fajr ?? null);
-  }, [city]);
-
-  useEffect(() => { loadTimes(); }, [loadTimes]);
 
   useEffect(() => {
     if (!prayerTimes) return;
@@ -132,7 +117,7 @@ const Widget = () => {
             className="text-sm font-bold"
             style={{ color: "hsl(36, 55%, 55%)", fontFamily: "'Playfair Display', serif" }}
           >
-            İftar Vakti
+            Vakt-i Şerif
           </span>
         </div>
 
@@ -188,7 +173,7 @@ const Widget = () => {
           className="block mt-2 text-[9px] opacity-50 hover:opacity-80 transition-opacity"
           style={{ color: "hsl(36, 55%, 55%)" }}
         >
-          iftarvakti.app
+          Vakt-i Şerif
         </a>
       </div>
     </div>

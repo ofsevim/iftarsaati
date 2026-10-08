@@ -31,7 +31,7 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((cacheNames) =>
-        Promise.all(cacheNames.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name)))
+        Promise.all(cacheNames.filter((name) => name.startsWith("vakt-i-serif-") && name !== CACHE_NAME).map((name) => caches.delete(name)))
       )
       .then(() => self.clients.claim())
   );
