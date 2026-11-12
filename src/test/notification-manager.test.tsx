@@ -41,8 +41,8 @@ afterEach(() => vi.useRealTimers());
 describe("native notifications", () => {
   it("sends a test alarm without replacing real reminders", async () => {
     render(<NotificationManager city={TURKEY_CITIES[0]} prayerTimes={times} />);
-    fireEvent.click(screen.getByRole("button", { name: "Bildirim ayarlari" }));
-    const testButton = await screen.findByRole("button", { name: "Test bildirimi gonder" });
+    fireEvent.click(screen.getByRole("button", { name: "Bildirim ayarları" }));
+    const testButton = await screen.findByRole("button", { name: "Test bildirimi gönder" });
     await waitFor(() => expect(native.scheduleReminders).toHaveBeenCalled());
     native.scheduleReminders.mockClear();
 
@@ -78,5 +78,38 @@ describe("native notifications", () => {
     render(<NotificationManager city={TURKEY_CITIES[0]} prayerTimes={times} />);
     await act(async () => {});
     expect(native.scheduleReminders).not.toHaveBeenCalled();
+  });
+
+  it("formats 0-minute reminders without '0 dakika kaldı' and skips invalid times", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 2, 10, 4, 0, 0));
+    localStorage.setItem("notif-pref", JSON.stringify({
+      enabled: true,
+      minutes: { Fajr: 0, Sunrise: -1, Dhuhr: -1, Asr: -1, Maghrib: -1, Isha: -1 },
+    }));
+
+    const brokenTimes: PrayerTimes = { ...times, Dhuhr: "invalid" };
+    render(<NotificationManager city={TURKEY_CITIES[0]} prayerTimes={brokenTimes} />);
+    await act(async () => {});
+
+    expect(native.scheduleReminders).toHaveBeenCalledOnce();
+    const payload = native.scheduleReminders.mock.calls[0][0].notifications[0];
+    expect(payload.body).toContain("vakti girdi.");
+    expect(payload.body).not.toContain("0 dakika");
+  });
+
+  it("closes settings popover on Escape or outside click", async () => {
+    render(<NotificationManager city={TURKEY_CITIES[0]} prayerTimes={times} />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole("button", { name: "Bildirim ayarları" }));
+    expect(screen.getByRole("dialog", { name: "Bildirim ayarları" })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Bildirim ayarları" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Bildirim ayarları" }));
+    expect(screen.getByRole("dialog", { name: "Bildirim ayarları" })).toBeInTheDocument();
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("dialog", { name: "Bildirim ayarları" })).not.toBeInTheDocument();
   });
 });

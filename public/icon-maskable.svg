@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="maskGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0d478;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#d4af5c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#b8935a;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="maskBg" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" style="stop-color:#1a2538;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0f1419;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#maskBg)"/>
+
+  <g transform="translate(256, 238) scale(0.56) translate(-256, -240)">
+    <path d="M 218 96 C 156 108 112 166 112 232 C 112 308 164 368 232 378 C 248 380 264 379 278 375 C 224 354 186 298 186 236 C 186 164 232 108 296 96 C 274 90 246 90 218 96 Z"
+          fill="url(#maskGold)"/>
+    <path d="M 356 155 L 369 190 L 406 190 L 376 212 L 387 248 L 356 226 L 325 248 L 336 212 L 306 190 L 343 190 Z"
+          fill="url(#maskGold)"/>
+  </g>
+
+  <text x="256" y="378"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="40"
+        font-weight="bold"
+        fill="url(#maskGold)"
+        text-anchor="middle"
+        letter-spacing="2">VAKT-İ ŞERİF</text>
+</svg>

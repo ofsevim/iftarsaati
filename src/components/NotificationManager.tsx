@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bell, BellOff, X, BellRing } from "lucide-react";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { fetchPrayerTimesForDate, type PrayerTimesWithMeta } from "@/lib/prayer-api";
+import { formatLocalDateKey, parsePrayerTimeOnDate } from "@/lib/prayer-countdown";
 import type { City, PrayerTimes } from "@/data/cities";
 import { PRAYER_LABELS } from "@/data/cities";
 
@@ -42,6 +43,7 @@ type ReminderSchedulerPlugin = {
 
 const ReminderScheduler = registerPlugin<ReminderSchedulerPlugin>("ReminderScheduler");
 const webTimerIds: number[] = [];
+let webTestTimerId: number | null = null;
 let scheduleEpoch = 0;
 
 const DEFAULT_PREF: NotifPref = {
@@ -80,15 +82,19 @@ function loadPref(): NotifPref {
       if (parsed.iftarMinutes !== undefined) {
         return {
           ...DEFAULT_PREF,
-          enabled: parsed.enabled,
+          enabled: Boolean(parsed.enabled),
           minutes: {
             ...DEFAULT_PREF.minutes,
-            Maghrib: parsed.iftarMinutes,
-            Fajr: parsed.sahurMinutes,
+            Maghrib: Number(parsed.iftarMinutes ?? DEFAULT_PREF.minutes.Maghrib),
+            Fajr: Number(parsed.sahurMinutes ?? DEFAULT_PREF.minutes.Fajr),
           },
         };
       }
-      return { ...DEFAULT_PREF, ...parsed };
+      return {
+        ...DEFAULT_PREF,
+        ...parsed,
+        minutes: { ...DEFAULT_PREF.minutes, ...(parsed.minutes ?? {}) },
+      };
     }
   } catch {
     // ignore storage errors
@@ -114,6 +120,46 @@ function createReminderId(dayDate: Date, prayerKey: keyof PrayerTimes): number {
   const mm = String(dayDate.getMonth() + 1).padStart(2, "0");
   const dd = String(dayDate.getDate()).padStart(2, "0");
   return Number(`${yy}${mm}${dd}${String(keyIndex).padStart(2, "0")}`);
+}
+
+function formatReminderMessage(
+  city: City,
+  key: keyof PrayerTimes,
+  mins: number,
+  dayIsRamadan: boolean | undefined
+): { title: string; body: string; channel: ScheduledNotification["channel"] } {
+  const isIftar = key === "Maghrib";
+  const isSahur = key === "Fajr";
+
+  if (isIftar && dayIsRamadan) {
+    return {
+      title: mins === 0 ? "İftar Vakti" : "İftar Yaklaşıyor",
+      body: mins === 0
+        ? `${city.name} için iftar vakti girdi.`
+        : `${city.name} için iftara ${mins} dakika kaldı.`,
+      channel: "special",
+    };
+  }
+
+  if (isSahur && dayIsRamadan) {
+    return {
+      title: "Sahur Vakti",
+      body: mins === 0
+        ? `${city.name} için sahur vakti girdi.`
+        : `${city.name} için sahura ${mins} dakika kaldı.`,
+      channel: "special",
+    };
+  }
+
+  const label = PRAYER_LABELS[key];
+  const lowerLabel = label.toLocaleLowerCase("tr-TR");
+  return {
+    title: `${label} Vakti`,
+    body: mins === 0
+      ? `${city.name} için ${lowerLabel} vakti girdi.`
+      : `${city.name} için ${lowerLabel} vaktine ${mins} dakika kaldı.`,
+    channel: "main",
+  };
 }
 
 async function buildNotifications(
@@ -145,42 +191,22 @@ async function buildNotifications(
 
     for (const key of keys) {
       const mins = pref.minutes[key];
-      if (mins === -1) {
+      if (!Number.isFinite(mins) || mins < 0) {
         continue;
       }
 
-      const timeStr = times[key];
-      if (!timeStr) {
+      const prayerDate = parsePrayerTimeOnDate(dayDate, times[key]);
+      if (!prayerDate) {
         continue;
       }
-
-      const [h, m] = timeStr.split(":").map(Number);
-      const prayerDate = new Date(dayDate);
-      prayerDate.setHours(h, m, 0, 0);
 
       const triggerAt = prayerDate.getTime() - mins * 60 * 1000;
       if (triggerAt <= now.getTime()) {
         continue;
       }
 
-      const isIftar = key === "Maghrib";
-      const isSahur = key === "Fajr";
       const dayIsRamadan = i === 0 ? isRamadan : (times as PrayerTimesWithMeta).hijri?.isRamadan ?? isRamadan;
-      const label = isIftar && dayIsRamadan ? "Iftar" : isSahur && dayIsRamadan ? "Sahur" : PRAYER_LABELS[key];
-
-      let title = `${label} Vakti`;
-      let body = `${city.name} icin ${label.toLowerCase()} vaktine ${mins} dakika kaldi.`;
-      let channel: ScheduledNotification["channel"] = "main";
-
-      if (isIftar && dayIsRamadan) {
-        title = "Iftar Yaklasiyor";
-        body = `${city.name} icin iftara ${mins} dakika kaldi.`;
-        channel = "special";
-      } else if (isSahur && dayIsRamadan) {
-        title = "Sahur Vakti";
-        body = `${city.name} icin sahura ${mins} dakika kaldi.`;
-        channel = "special";
-      }
+      const { title, body, channel } = formatReminderMessage(city, key, mins, dayIsRamadan);
 
       notifications.push({
         id: createReminderId(dayDate, key),
@@ -240,7 +266,7 @@ async function scheduleNotifications(
           requireInteraction: true,
         });
       } catch (error) {
-        console.error("Web bildirimi gosterilemedi:", error);
+        console.error("Web bildirimi gösterilemedi:", error);
       }
     }, delay);
 
@@ -264,7 +290,11 @@ async function sendTestNotification() {
     return;
   }
 
-  window.setTimeout(() => {
+  if (webTestTimerId !== null) {
+    window.clearTimeout(webTestTimerId);
+  }
+  webTestTimerId = window.setTimeout(() => {
+    webTestTimerId = null;
     try {
       new Notification("Vakt-i Şerif Test", {
         body: "Bildirimler çalışıyor. Ayarlı web bildirimleri de bu yolla tetiklenecek.",
@@ -274,7 +304,7 @@ async function sendTestNotification() {
         requireInteraction: true,
       });
     } catch (error) {
-      console.error("Web test bildirimi gosterilemedi:", error);
+      console.error("Web test bildirimi gösterilemedi:", error);
     }
   }, 3000);
 }
@@ -306,11 +336,48 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
   const [pref, setPref] = useState<NotifPref>(loadPref);
   const [showSettings, setShowSettings] = useState(false);
   const [testSent, setTestSent] = useState(false);
+  const [testError, setTestError] = useState<string | null>(null);
   const [scheduled, setScheduled] = useState<number>(0);
   const [permission, setPermission] = useState<AppNotificationPermission | null>(() =>
     isNativePlatform() ? null : getWebPermissionState()
   );
   const [schedulerStatus, setSchedulerStatus] = useState<ReminderSchedulerStatus | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastScheduledDateRef = useRef<string>("");
+  const lastRenewAtRef = useRef<number>(0);
+  const testSentTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (testSentTimerRef.current !== null) {
+        window.clearTimeout(testSentTimerRef.current);
+      }
+      if (webTestTimerId !== null) {
+        window.clearTimeout(webTestTimerId);
+        webTestTimerId = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!showSettings) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showSettings]);
 
   useEffect(() => {
     let cancelled = false;
@@ -324,7 +391,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
             setPermission(status.permission);
           }
         } catch (error) {
-          console.error("Native bildirim durumu alinamadi:", error);
+          console.error("Native bildirim durumu alınamadı:", error);
           if (!cancelled) {
             setSchedulerStatus(null);
             setPermission("default");
@@ -339,7 +406,9 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     };
 
     const handleVisibilityOrFocus = () => {
-      void syncPermission();
+      if (!document.hidden) {
+        void syncPermission();
+      }
     };
 
     void syncPermission();
@@ -357,8 +426,10 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     if (permission === null) return;
     if (!pref.enabled || permission !== "granted" || !canNotify()) {
       scheduleEpoch++;
+      lastScheduledDateRef.current = "";
+      lastRenewAtRef.current = 0;
       void cancelScheduledNotifications().catch((error) => {
-        console.error("Bildirim iptal hatasi:", error);
+        console.error("Bildirim iptal hatası:", error);
       });
       setScheduled(0);
       return;
@@ -368,19 +439,26 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     const renew = () => {
       const epoch = ++scheduleEpoch;
       const isCurrent = () => !cancelled && epoch === scheduleEpoch;
+      lastScheduledDateRef.current = formatLocalDateKey(new Date());
+      lastRenewAtRef.current = Date.now();
       scheduleNotifications(pref, city, prayerTimes, isRamadan, isCurrent)
         .then((count) => {
           if (isCurrent() && count !== null) setScheduled(count);
         })
         .catch((error) => {
-          console.error("Bildirim planlama hatasi:", error);
+          console.error("Bildirim planlama hatası:", error);
           if (isCurrent()) setScheduled(0);
         });
     };
     renew();
     const refreshTimer = window.setInterval(renew, 24 * 60 * 60 * 1000);
     const refreshWhenVisible = () => {
-      if (!document.hidden) renew();
+      if (document.hidden) return;
+      const todayKey = formatLocalDateKey(new Date());
+      const elapsed = Date.now() - lastRenewAtRef.current;
+      if (todayKey !== lastScheduledDateRef.current || elapsed >= 60 * 60 * 1000) {
+        renew();
+      }
     };
     document.addEventListener("visibilitychange", refreshWhenVisible);
     window.addEventListener("focus", refreshWhenVisible);
@@ -410,17 +488,21 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
             return;
           }
         } catch (error) {
-          console.error("Native bildirim izni alinamadi:", error);
+          console.error("Native bildirim izni alınamadı:", error);
           return;
         }
       } else {
-        if (Notification.permission === "default") {
-          const result = await Notification.requestPermission();
-          setPermission(result);
-          if (result !== "granted") {
+        try {
+          if (Notification.permission === "default") {
+            const result = await Notification.requestPermission();
+            setPermission(result);
+            if (result !== "granted") {
+              return;
+            }
+          } else if (Notification.permission === "denied") {
             return;
           }
-        } else if (Notification.permission === "denied") {
+        } catch {
           return;
         }
       }
@@ -432,18 +514,38 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
       const newPref = { ...pref, enabled: false };
       setPref(newPref);
       savePref(newPref);
-      await cancelScheduledNotifications();
+      try {
+        await cancelScheduledNotifications();
+      } catch (error) {
+        console.error("Bildirim iptal hatası:", error);
+      }
       setScheduled(0);
     }
   };
 
   const handleTest = async () => {
+    if (permission !== "granted") {
+      setTestError("Önce bildirim izni vermeniz gerekiyor.");
+      return;
+    }
+    setTestError(null);
     if (!isNativePlatform()) {
       playSound();
     }
-    await sendTestNotification();
-    setTestSent(true);
-    setTimeout(() => setTestSent(false), 5000);
+    try {
+      await sendTestNotification();
+      setTestSent(true);
+      if (testSentTimerRef.current !== null) {
+        window.clearTimeout(testSentTimerRef.current);
+      }
+      testSentTimerRef.current = window.setTimeout(() => {
+        setTestSent(false);
+        testSentTimerRef.current = null;
+      }, 5000);
+    } catch (error) {
+      console.error("Test bildirimi gönderilemedi:", error);
+      setTestError("Test bildirimi planlanamadı.");
+    }
   };
 
   const handleOpenNativeSettings = async (screen: NativeSettingsScreen) => {
@@ -454,7 +556,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     try {
       await ReminderScheduler.openSettings({ screen });
     } catch (error) {
-      console.error("Native ayarlar acilamadi:", error);
+      console.error("Native ayarlar açılamadı:", error);
     }
   };
 
@@ -472,12 +574,13 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         onClick={() => setShowSettings(!showSettings)}
+        aria-expanded={showSettings}
         className="glass-card gold-border p-2.5 min-h-[42px] min-w-[42px] flex items-center justify-center gap-1.5 text-xs transition-all hover:text-gold touch-manipulation active:scale-95"
-        aria-label="Bildirim ayarlari"
-        title="Bildirim ayarlari"
+        aria-label="Bildirim ayarları"
+        title="Bildirim ayarları"
       >
         {pref.enabled ? (
           <Bell className="w-4 h-4 text-gold" />
@@ -487,7 +590,11 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
       </button>
 
       {showSettings && (
-        <div className="absolute top-full mt-2 right-0 w-72 max-w-[calc(100vw-2rem)] bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div
+          role="dialog"
+          aria-label="Bildirim ayarları"
+          className="absolute top-full mt-2 right-0 w-72 max-w-[calc(100vw-2rem)] bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200"
+        >
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-cream">Bildirimler</span>
             <button
@@ -502,15 +609,15 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
           {permission === "denied" ? (
             <div className="space-y-3">
               <p className="text-xs text-cream-muted">
-                Bildirim izni kapali. Telefon ayarlarindan izin vermeniz gerekiyor.
+                Bildirim izni kapalı. Cihaz veya tarayıcı ayarlarından izin vermeniz gerekiyor.
               </p>
 
               {isNativePlatform() && (
                 <button
                   onClick={() => void handleOpenNativeSettings("notifications")}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-cream-muted transition-colors hover:border-[hsl(36,55%,55%,0.3)] hover:text-gold"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-cream-muted transition-colors hover:border-[hsla(36,55%,55%,0.3)] hover:text-gold"
                 >
-                  Bildirim ayarlarini ac
+                  Bildirim ayarlarını aç
                 </button>
               )}
             </div>
@@ -520,11 +627,11 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                 onClick={handleToggle}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm mb-3 transition-colors ${
                   pref.enabled
-                    ? "bg-[hsl(36,55%,55%,0.15)] text-gold border border-[hsl(36,55%,55%,0.3)]"
+                    ? "bg-[hsla(36,55%,55%,0.15)] text-gold border border-[hsla(36,55%,55%,0.3)]"
                     : "bg-white/5 text-cream-muted border border-white/10"
                 }`}
               >
-                <span>{pref.enabled ? "Acik" : "Kapali"}</span>
+                <span>{pref.enabled ? "Açık" : "Kapalı"}</span>
                 <div
                   className={`w-8 h-4 rounded-full relative transition-colors ${
                     pref.enabled ? "bg-gold/40" : "bg-white/20"
@@ -544,10 +651,10 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                     <div key={key}>
                       <label className="text-xs text-cream-muted block mb-1">
                         {key === "Maghrib" && isRamadan
-                          ? "Iftardan once (dk)"
+                          ? "İftardan önce (dk)"
                           : key === "Fajr" && isRamadan
-                            ? "Sahurdan once (dk)"
-                            : `${PRAYER_LABELS[key]} vaktinden once (dk)`}
+                            ? "Sahurdan önce (dk)"
+                            : `${PRAYER_LABELS[key]} vaktinden önce (dk)`}
                       </label>
                       <select
                         value={pref.minutes[key]}
@@ -555,10 +662,10 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                         className="w-full bg-slate-900 border border-gold/30 rounded-lg px-2 py-1.5 text-sm text-cream outline-none cursor-pointer"
                         style={{ colorScheme: "dark" }}
                       >
-                        <option value={-1} className="bg-slate-900 text-cream">Bildirim kapali</option>
+                        <option value={-1} className="bg-slate-900 text-cream">Bildirim kapalı</option>
                         {[0, 5, 10, 15, 30, 45, 60].map((v) => (
                           <option key={v} value={v} className="bg-slate-900 text-cream">
-                            {v === 0 ? "Tam vaktinde" : `${v} dakika once`}
+                            {v === 0 ? "Tam vaktinde" : `${v} dakika önce`}
                           </option>
                         ))}
                       </select>
@@ -566,36 +673,42 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                   ))}
 
                   <div className="text-[11px] text-cream-muted/70">
-                    Su an planlanan bildirim: {scheduled}
+                    Şu an planlanan bildirim: {scheduled}
                   </div>
 
                   {!isNativePlatform() && (
                     <div className="text-[11px] text-cream-muted/60">
-                      Tarayicida planli bildirimler sekme uyursa veya kapanirsa aksayabilir.
+                      Tarayıcıda planlı bildirimler sekme uyursa veya kapanırsa aksayabilir.
                     </div>
                   )}
 
                   {isNativePlatform() && schedulerStatus?.exactAlarmsSupported && !schedulerStatus.exactAlarmsAllowed && (
                     <div className="space-y-2">
                       <div className="text-[11px] text-amber-200/80">
-                        Android tam-zaman alarm izni kapaliysa bildirimler birkaç dakika gecikebilir.
+                        Android tam-zaman alarm izni kapalıysa bildirimler birkaç dakika gecikebilir.
                       </div>
                       <button
                         onClick={() => void handleOpenNativeSettings("exactAlarms")}
                         className="w-full rounded-xl border border-amber-200/20 bg-amber-200/5 px-3 py-2 text-xs text-amber-100 transition-colors hover:border-amber-200/40"
                       >
-                        Tam-zaman alarm ayarini ac
+                        Tam-zaman alarm ayarını aç
                       </button>
+                    </div>
+                  )}
+
+                  {testError && (
+                    <div className="text-[11px] text-red-400" role="alert">
+                      {testError}
                     </div>
                   )}
 
                   <button
                     onClick={handleTest}
                     disabled={testSent}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-colors bg-white/5 border border-white/10 text-cream-muted hover:text-gold hover:border-[hsl(36,55%,55%,0.3)] disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-colors bg-white/5 border border-white/10 text-cream-muted hover:text-gold hover:border-[hsla(36,55%,55%,0.3)] disabled:opacity-50"
                   >
                     <BellRing className="w-3.5 h-3.5" />
-                    {testSent ? "3 saniye icinde gelecek..." : "Test bildirimi gonder"}
+                    {testSent ? "3 saniye içinde gelecek..." : "Test bildirimi gönder"}
                   </button>
                 </div>
               )}

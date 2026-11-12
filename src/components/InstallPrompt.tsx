@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Download, X, Share } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -23,13 +24,18 @@ function safeStorageSet(key: string, value: string): void {
 }
 
 function isIOS(): boolean {
-  return (
-    /iPad|iPhone|iPod/.test(navigator.userAgent) &&
-    !(window as unknown as { MSStream?: unknown }).MSStream
-  );
+  const win = window as unknown as { MSStream?: unknown };
+  const isClassicIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !win.MSStream;
+  const isIPadOS = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return isClassicIOS || isIPadOS;
+}
+
+function isNativeApp(): boolean {
+  return Capacitor.getPlatform() !== "web";
 }
 
 function isStandalone(): boolean {
+  if (isNativeApp()) return true;
   return (
     window.matchMedia("(display-mode: standalone)").matches ||
     (window.navigator as unknown as { standalone?: boolean }).standalone === true
@@ -42,7 +48,7 @@ const InstallPrompt = () => {
   const [isIOSDevice, setIsIOSDevice] = useState(false);
 
   useEffect(() => {
-    if (isStandalone()) {
+    if (isStandalone() || window.location.pathname.startsWith("/widget")) {
       setShowPrompt(false);
       return;
     }
@@ -70,14 +76,17 @@ const InstallPrompt = () => {
   const handleInstall = async () => {
     if (!deferredPrompt) return;
 
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-
-    if (outcome === "accepted") {
-      setShowPrompt(false);
+    try {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        setShowPrompt(false);
+      }
+    } catch {
+      // Kullanıcı iptal veya tarayıcı hatası
+    } finally {
+      setDeferredPrompt(null);
     }
-
-    setDeferredPrompt(null);
   };
 
   const handleDismiss = () => {
@@ -88,7 +97,7 @@ const InstallPrompt = () => {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 animate-in slide-in-from-bottom-5">
+    <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 animate-slide-up print:hidden">
       <div className="glass-card gold-border p-4 shadow-2xl relative">
         <button
           onClick={handleDismiss}
@@ -124,7 +133,7 @@ const InstallPrompt = () => {
             </div>
             <button
               onClick={handleDismiss}
-              className="w-full glass-card gold-border px-4 py-2.5 text-xs font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation active:scale-98"
+              className="w-full glass-card gold-border px-4 py-2.5 text-xs font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation active:scale-95"
             >
               Anladım
             </button>
@@ -132,7 +141,7 @@ const InstallPrompt = () => {
         ) : (
           <button
             onClick={handleInstall}
-            className="w-full glass-card gold-border px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation active:scale-98"
+            className="w-full glass-card gold-border px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation active:scale-95"
           >
             <Download className="w-4 h-4" />
             Yükle

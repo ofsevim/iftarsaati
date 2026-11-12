@@ -1,7 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Moon } from "lucide-react";
 import { TURKEY_CITIES, type City } from "@/data/cities";
 import { usePrayerDay } from "@/hooks/use-prayer-day";
+import { normalizeForSearch } from "@/lib/utils";
+import { computeCountdown, type CountdownState } from "@/lib/prayer-countdown";
+
+const INITIAL_COUNTDOWN: CountdownState = {
+  hours: 0,
+  minutes: 0,
+  seconds: 0,
+  passed: false,
+  mode: "Maghrib",
+  unavailable: false,
+  isMaghribWindow: false,
+};
 
 /**
  * Minimal widget sayfası — iframe ile embed edilebilir.
@@ -9,71 +21,37 @@ import { usePrayerDay } from "@/hooks/use-prayer-day";
  * Arka plan transparan, sadece sayaç gösterir.
  */
 const Widget = () => {
-  const params = new URLSearchParams(window.location.search);
-  const cityName = params.get("city") || "İstanbul";
-  const city: City = TURKEY_CITIES.find((c) => c.name === cityName) || TURKEY_CITIES.find((c) => c.name === "İstanbul")!;
+  const city: City = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cityName = params.get("city")?.trim();
+    const defaultCity = TURKEY_CITIES.find((c) => c.name === "İstanbul")!;
+    if (!cityName) return defaultCity;
+    const normalized = normalizeForSearch(cityName);
+    return (
+      TURKEY_CITIES.find((c) => normalizeForSearch(c.name) === normalized) ||
+      defaultCity
+    );
+  }, []);
 
   useEffect(() => {
     document.body.classList.add("widget-mode");
     return () => document.body.classList.remove("widget-mode");
   }, []);
 
-  const { prayerTimes, tomorrowFajr } = usePrayerDay(city);
-  const [countdown, setCountdown] = useState<{
-    hours: number;
-    minutes: number;
-    seconds: number;
-    passed: boolean;
-    mode: "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha";
-  }>({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "Maghrib" });
+  const { prayerTimes, tomorrowFajr, isRamadan, loading } = usePrayerDay(city);
+  const [countdown, setCountdown] = useState<CountdownState>(INITIAL_COUNTDOWN);
 
   useEffect(() => {
     if (!prayerTimes) return;
     const update = () => {
-      const now = new Date();
-      const parseTimeOnDate = (base: Date, time: string) => {
-        const [h, m] = time.split(":").map(Number);
-        const d = new Date(base);
-        d.setHours(h, m, 0, 0);
-        return d;
-      };
-
-      const prayers: { name: "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha"; time: Date }[] = [
-        { name: "Fajr", time: parseTimeOnDate(now, prayerTimes.Fajr) },
-        { name: "Sunrise", time: parseTimeOnDate(now, prayerTimes.Sunrise) },
-        { name: "Dhuhr", time: parseTimeOnDate(now, prayerTimes.Dhuhr) },
-        { name: "Asr", time: parseTimeOnDate(now, prayerTimes.Asr) },
-        { name: "Maghrib", time: parseTimeOnDate(now, prayerTimes.Maghrib) },
-        { name: "Isha", time: parseTimeOnDate(now, prayerTimes.Isha) },
-      ];
-
-      let nextPrayer = prayers.find(p => p.time.getTime() > now.getTime());
-
-      if (!nextPrayer) {
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const targetTime = tomorrowFajr
-          ? parseTimeOnDate(tomorrow, tomorrowFajr)
-          : new Date(now.getTime() + 12 * 60 * 60 * 1000); 
-        nextPrayer = { name: "Fajr", time: targetTime };
-      }
-
-      const maghribTime = parseTimeOnDate(now, prayerTimes.Maghrib);
-      const maghribEnd = new Date(maghribTime.getTime() + 4 * 60 * 1000); 
-
-      if (now.getTime() >= maghribTime.getTime() && now.getTime() <= maghribEnd.getTime()) {
-        setCountdown({ hours: 0, minutes: 0, seconds: 0, passed: true, mode: "Maghrib" });
-        return;
-      }
-
-      const diff = nextPrayer.time.getTime() - now.getTime();
-      setCountdown({
-        hours: Math.floor(diff / (1000 * 60 * 60)),
-        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-        seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        mode: nextPrayer.name,
-        passed: false
-      });
+      setCountdown(
+        computeCountdown({
+          now: new Date(),
+          prayerTimes,
+          tomorrowFajr,
+          targetMode: "next_prayer",
+        })
+      );
     };
     update();
     const interval = setInterval(update, 1000);
@@ -82,22 +60,21 @@ const Widget = () => {
 
   const pad = (n: number) => String(n).padStart(2, "0");
 
-  const label =
-    countdown.passed && countdown.mode === "Maghrib"
-      ? "Hayırlı İftarlar! 🌙"
-      : countdown.mode === "Fajr"
-        ? "İmsak (Sahur) Vaktine Kalan"
-        : countdown.mode === "Sunrise"
-          ? "Güneşin Doğmasına Kalan"
-          : countdown.mode === "Dhuhr"
-            ? "Öğle Vaktine Kalan"
-            : countdown.mode === "Asr"
-              ? "İkindi Vaktine Kalan"
-              : countdown.mode === "Maghrib"
-                ? "Akşam (İftar) Vaktine Kalan"
-                : countdown.mode === "Isha"
-                  ? "Yatsı Vaktine Kalan"
-                  : "Sonraki Vakte Kalan";
+  const label = countdown.isMaghribWindow
+    ? (isRamadan ? "Hayırlı İftarlar! 🌙" : "Akşam Vakti Girdi 🌙")
+    : countdown.mode === "Fajr"
+      ? (isRamadan ? "Sahur (İmsak) Vaktine Kalan" : "İmsak Vaktine Kalan")
+      : countdown.mode === "Sunrise"
+        ? "Güneşin Doğmasına Kalan"
+        : countdown.mode === "Dhuhr"
+          ? "Öğle Vaktine Kalan"
+          : countdown.mode === "Asr"
+            ? "İkindi Vaktine Kalan"
+            : countdown.mode === "Maghrib"
+              ? (isRamadan ? "İftar (Akşam) Vaktine Kalan" : "Akşam Vaktine Kalan")
+              : countdown.mode === "Isha"
+                ? "Yatsı Vaktine Kalan"
+                : "Sonraki Vakte Kalan";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-transparent p-2">
@@ -105,7 +82,7 @@ const Widget = () => {
         className="rounded-2xl border p-4 text-center w-full max-w-xs"
         style={{
           background: "rgba(15, 20, 25, 0.85)",
-          borderColor: "hsl(36, 55%, 55%, 0.3)",
+          borderColor: "hsla(36, 55%, 55%, 0.3)",
           boxShadow: "0 8px 32px rgba(20,20,20,0.4)",
           fontFamily: "'Inter', sans-serif",
         }}
@@ -126,28 +103,46 @@ const Widget = () => {
           {city.name}
         </div>
 
-        {/* Label */}
-        <div className="text-xs mb-2" style={{ color: "hsl(36, 60%, 70%)" }}>
-          {label}
-        </div>
-
-        {/* Countdown */}
-        {(!countdown.passed || countdown.mode !== "Maghrib") && (
-          <div className="flex items-center justify-center gap-1">
-            <span
-              className="text-2xl font-bold tabular-nums"
-              style={{ color: "hsl(36, 60%, 70%)", fontFamily: "'Inter', sans-serif" }}
-            >
-              {pad(countdown.hours)}:{pad(countdown.minutes)}:{pad(countdown.seconds)}
-            </span>
+        {loading ? (
+          <div className="text-xs py-3 animate-pulse" style={{ color: "hsl(40, 20%, 80%)" }}>
+            Vakitler yükleniyor...
           </div>
+        ) : !prayerTimes ? (
+          <div className="text-xs py-3" style={{ color: "hsl(40, 20%, 80%)" }}>
+            Vakit verileri alınamadı.
+          </div>
+        ) : (
+          <>
+            {/* Label */}
+            <div className="text-xs mb-2" style={{ color: "hsl(36, 60%, 70%)" }}>
+              {label}
+            </div>
+
+            {/* Countdown */}
+            {!countdown.isMaghribWindow && (
+              countdown.unavailable ? (
+                <div className="text-xs py-1" style={{ color: "hsl(40, 20%, 80%)" }}>
+                  Yarının imsak vakti bekleniyor
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-1" role="timer" aria-live="polite">
+                  <span
+                    className="text-2xl font-bold tabular-nums"
+                    style={{ color: "hsl(36, 60%, 70%)", fontFamily: "'Inter', sans-serif" }}
+                  >
+                    {pad(countdown.hours)}:{pad(countdown.minutes)}:{pad(countdown.seconds)}
+                  </span>
+                </div>
+              )
+            )}
+          </>
         )}
 
         {/* Prayer times mini */}
         {prayerTimes && (
           <div className="flex justify-between mt-3 text-[10px]" style={{ color: "hsl(40, 20%, 80%)" }}>
             <div className="text-center">
-              <div style={{ color: "hsl(36, 60%, 70%)" }}>İmsak</div>
+              <div style={{ color: "hsl(36, 60%, 70%)" }}>{isRamadan ? "Sahur" : "İmsak"}</div>
               <div>{prayerTimes.Fajr}</div>
             </div>
             <div className="text-center">
@@ -159,7 +154,7 @@ const Widget = () => {
               <div>{prayerTimes.Asr}</div>
             </div>
             <div className="text-center">
-              <div style={{ color: "hsl(36, 60%, 70%)" }}>Akşam</div>
+              <div style={{ color: "hsl(36, 60%, 70%)" }}>{isRamadan ? "İftar" : "Akşam"}</div>
               <div>{prayerTimes.Maghrib}</div>
             </div>
           </div>

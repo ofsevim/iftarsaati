@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 720">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d131a"/>
+      <stop offset="100%" style="stop-color:#131c28"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0d478"/>
+      <stop offset="100%" style="stop-color:#c9a961"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="540" height="720" fill="url(#bg)"/>
+  <circle cx="270" cy="80" r="180" fill="#c9a961" opacity="0.06"/>
+
+  <!-- Header -->
+  <text x="270" y="96" font-family="Georgia, serif" font-size="44" font-weight="bold" fill="url(#gold)" text-anchor="middle">Vakt-i Şerif</text>
+  <text x="270" y="128" font-family="sans-serif" font-size="18" fill="#d8cfc0" text-anchor="middle" opacity="0.85">81 İl İçin Namaz Vakitleri &amp; İmsakiye</text>
+
+  <!-- City pill -->
+  <rect x="170" y="162" width="200" height="44" rx="14" fill="#182230" stroke="#c9a961" stroke-opacity="0.35"/>
+  <text x="270" y="190" font-family="sans-serif" font-size="18" font-weight="600" fill="#f0d478" text-anchor="middle">İstanbul</text>
+
+  <!-- Countdown Title -->
+  <text x="270" y="256" font-family="Georgia, serif" font-size="22" fill="#e6c878" text-anchor="middle">İftar Vaktine Kalan Süre</text>
+
+  <!-- Countdown Digits -->
+  <rect x="85" y="278" width="96" height="92" rx="16" fill="#182230" stroke="#c9a961" stroke-opacity="0.35"/>
+  <text x="133" y="338" font-family="sans-serif" font-size="44" font-weight="bold" fill="#f0d478" text-anchor="middle">02</text>
+  <text x="133" y="392" font-family="sans-serif" font-size="14" fill="#d8cfc0" text-anchor="middle">Saat</text>
+
+  <text x="200" y="336" font-family="sans-serif" font-size="38" font-weight="bold" fill="#c9a961" text-anchor="middle">:</text>
+
+  <rect x="222" y="278" width="96" height="92" rx="16" fill="#182230" stroke="#c9a961" stroke-opacity="0.35"/>
+  <text x="270" y="338" font-family="sans-serif" font-size="44" font-weight="bold" fill="#f0d478" text-anchor="middle">14</text>
+  <text x="270" y="392" font-family="sans-serif" font-size="14" fill="#d8cfc0" text-anchor="middle">Dakika</text>
+
+  <text x="339" y="336" font-family="sans-serif" font-size="38" font-weight="bold" fill="#c9a961" text-anchor="middle">:</text>
+
+  <rect x="359" y="278" width="96" height="92" rx="16" fill="#182230" stroke="#c9a961" stroke-opacity="0.35"/>
+  <text x="407" y="338" font-family="sans-serif" font-size="44" font-weight="bold" fill="#f0d478" text-anchor="middle">35</text>
+  <text x="407" y="392" font-family="sans-serif" font-size="14" fill="#d8cfc0" text-anchor="middle">Saniye</text>
+
+  <!-- Prayer Grid -->
+  <rect x="44" y="432" width="142" height="84" rx="14" fill="#182230" stroke="#c9a961" stroke-opacity="0.25"/>
+  <text x="115" y="464" font-family="sans-serif" font-size="14" fill="#d8cfc0" text-anchor="middle">İmsak</text>
+  <text x="115" y="496" font-family="sans-serif" font-size="22" font-weight="600" fill="#f5efe6" text-anchor="middle">05:42</text>
+
+  <rect x="199" y="432" width="142" height="84" rx="14" fill="#182230" stroke="#c9a961" stroke-opacity="0.25"/>
+  <text x="270" y="464" font-family="sans-serif" font-size="14" fill="#d8cfc0" text-anchor="middle">Güneş</text>
+  <text x="270" y="496" font-family="sans-serif" font-size="22" font-weight="600" fill="#f5efe6" text-anchor="middle">07:06</text>
+
+  <rect x="354" y="432" width="142" height="84" rx="14" fill="#182230" stroke="#c9a961" stroke-opacity="0.25"/>
+  <text x="425" y="464" font-family="sans-serif" font-size="14" fill="#d8cfc0" text-anchor="middle">Öğle</text>
+  <text x="425" y="496" font-family="sans-serif" font-size="22" font-weight="600" fill="#f5efe6" text-anchor="middle">13:18</text>
+
+  <rect x="44" y="532" width="142" height="84" rx="14" fill="#182230" stroke="#c9a961" stroke-opacity="0.25"/>
+  <text x="115" y="564" font-family="sans-serif" font-size="14" fill="#d8cfc0" text-anchor="middle">İkindi</text>
+  <text x="115" y="596" font-family="sans-serif" font-size="22" font-weight="600" fill="#f5efe6" text-anchor="middle">16:36</text>
+
+  <rect x="199" y="532" width="142" height="84" rx="14" fill="#2b2416" stroke="#c9a961" stroke-opacity="0.6"/>
+  <text x="270" y="564" font-family="sans-serif" font-size="14" fill="#f0d478" text-anchor="middle">Akşam (İftar)</text>
+  <text x="270" y="596" font-family="sans-serif" font-size="22" font-weight="700" fill="#f0d478" text-anchor="middle">19:16</text>
+
+  <rect x="354" y="532" width="142" height="84" rx="14" fill="#182230" stroke="#c9a961" stroke-opacity="0.25"/>
+  <text x="425" y="564" font-family="sans-serif" font-size="14" fill="#d8cfc0" text-anchor="middle">Yatsı</text>
+  <text x="425" y="596" font-family="sans-serif" font-size="22" font-weight="600" fill="#f5efe6" text-anchor="middle">20:35</text>
+
+  <text x="270" y="672" font-family="sans-serif" font-size="14" fill="#c9a961" text-anchor="middle" opacity="0.75">Vakt-i Şerif • Ramazan İmsakiyesi</text>
+</svg>

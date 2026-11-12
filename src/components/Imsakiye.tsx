@@ -10,6 +10,7 @@ import {
 interface ImsakiyeProps {
   city: City;
   period?: RamadanPeriod | null;
+  loading?: boolean;
   todayKey?: string;
 }
 
@@ -23,20 +24,20 @@ function formatDateRangeLabel(period: RamadanPeriod): string {
   return `${startLabel} - ${endLabel}`;
 }
 
-const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
+const Imsakiye = ({ city, period: propPeriod, loading: propLoading, todayKey }: ImsakiyeProps) => {
   const [internalPeriod, setInternalPeriod] = useState<RamadanPeriod | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [internalLoading, setInternalLoading] = useState(false);
 
   useEffect(() => {
     if (propPeriod !== undefined) return;
     let cancelled = false;
 
     const load = async () => {
-      setLoading(true);
+      setInternalLoading(true);
       const data = await fetchUpcomingRamadanPeriod(city, new Date());
       if (!cancelled) {
         setInternalPeriod(data);
-        setLoading(false);
+        setInternalLoading(false);
       }
     };
 
@@ -47,6 +48,7 @@ const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
   }, [city, propPeriod]);
 
   const period = propPeriod !== undefined ? propPeriod : internalPeriod;
+  const isLoading = propLoading ?? internalLoading;
   const days = period?.days ?? [];
 
   const todayStr = useMemo(() => {
@@ -58,8 +60,12 @@ const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
   const prayerKeys: (keyof PrayerTimes)[] = ["Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"];
 
   const calculateBayramTime = (sunrise: string) => {
-    const [h, m] = sunrise.split(":").map(Number);
-    const totalMinutes = h * 60 + m + 38;
+    const match = sunrise.trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) return "--:--";
+    const h = Number(match[1]);
+    const m = Number(match[2]);
+    if (h < 0 || h > 23 || m < 0 || m > 59) return "--:--";
+    const totalMinutes = (h * 60 + m + 38) % (24 * 60);
     return `${String(Math.floor(totalMinutes / 60)).padStart(2, "0")}:${String(totalMinutes % 60).padStart(2, "0")}`;
   };
 
@@ -76,18 +82,22 @@ const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
   const handleShare = () => {
     const year = period?.startDateKey.slice(0, 4) ?? "";
     const text = `${city.name} ${year} Ramazan İmsakiyesi ve İftar Vakitleri: https://iftarsaati.netlify.app/`;
-    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
+    window.open(
+      `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
   };
 
   return (
-    <div className="w-full max-w-4xl mt-12 mb-8 print:m-0 print:max-w-full">
+    <div id="imsakiye" className="w-full max-w-4xl mt-12 mb-8 print:m-0 print:max-w-full">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="text-center sm:text-left">
-          <h3 className="font-display text-xl md:text-2xl text-gold">
+          <h3 className="font-display text-xl md:text-2xl text-gold print:text-black">
             {city.name} - Ramazan İmsakiyesi
           </h3>
           {period && (
-            <p className="text-xs sm:text-sm text-cream-muted mt-1">
+            <p className="text-xs sm:text-sm text-cream-muted mt-1 print:text-gray-700">
               {formatDateRangeLabel(period)}
             </p>
           )}
@@ -115,7 +125,7 @@ const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
         )}
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="text-center text-cream-muted animate-pulse py-8">
           İmsakiye yükleniyor...
         </div>
@@ -124,22 +134,22 @@ const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
           Bu şehir için Ramazan takvimi şu an alınamadı.
         </div>
       ) : (
-        <div className="glass-card gold-border overflow-hidden">
-          <div className="sm:hidden text-right px-3 py-1 text-[10px] text-cream-muted/50 border-b border-white/5">
+        <div className="glass-card gold-border overflow-hidden print:overflow-visible print:bg-white print:border-gray-300 print:shadow-none">
+          <div className="sm:hidden print:hidden text-right px-3 py-1 text-[10px] text-cream-muted/50 border-b border-white/5">
             ↔ Sağa/sola kaydırılabilir
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[500px] text-xs md:text-sm border-collapse">
+          <div className="overflow-x-auto print:overflow-visible">
+            <table className="w-full min-w-[500px] print:min-w-0 text-xs md:text-sm border-collapse">
               <thead>
-                <tr className="border-b" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
-                  <th className="sticky print:static left-0 print:left-auto z-20 print:z-auto bg-[#0d1319] print:bg-transparent px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium w-10 min-w-[2.5rem]">
+                <tr className="border-b print:border-gray-300" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
+                  <th className="sticky print:static left-0 print:left-auto z-20 print:z-auto bg-[#0d1319] print:bg-gray-100 print:text-black px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium w-10 min-w-[2.5rem]">
                     Gün
                   </th>
-                  <th className="sticky print:static left-10 print:left-auto z-20 print:z-auto bg-[#0d1319] print:bg-transparent px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium border-r border-gold/20 shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
+                  <th className="sticky print:static left-10 print:left-auto z-20 print:z-auto bg-[#0d1319] print:bg-gray-100 print:text-black print:shadow-none px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium border-r border-gold/20 print:border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
                     Tarih
                   </th>
                   {prayerKeys.map((key) => (
-                    <th key={key} className="px-1 sm:px-2 md:px-3 py-2 md:py-3 text-center text-gold-light font-display font-medium">
+                    <th key={key} className="px-1 sm:px-2 md:px-3 py-2 md:py-3 text-center text-gold-light print:bg-gray-100 print:text-black font-display font-medium">
                       {PRAYER_LABELS[key]}
                     </th>
                   ))}
@@ -152,14 +162,14 @@ const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
                 const isBayram = day.dateKey === period.bayramDateKey;
 
                 const rowColor = isKadirGecesi
-                  ? "bg-[hsla(280,60%,50%,0.12)]"
+                  ? "bg-[hsla(280,60%,50%,0.12)] print:bg-purple-50"
                   : isBayram
-                    ? "bg-[hsla(36,55%,55%,0.15)]"
+                    ? "bg-[hsla(36,55%,55%,0.15)] print:bg-amber-50"
                     : isToday
-                      ? "bg-[hsla(36,55%,55%,0.12)]"
+                      ? "bg-[hsla(36,55%,55%,0.12)] print:bg-amber-50"
                       : i % 2 === 0
                         ? "bg-transparent"
-                        : "bg-[hsla(220,30%,15%,0.3)]";
+                        : "bg-[hsla(220,30%,15%,0.3)] print:bg-gray-50";
 
                 const stickyBg = isKadirGecesi
                   ? "bg-[#1f152b] print:bg-transparent"
@@ -171,29 +181,33 @@ const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
                         ? "bg-[#0d1319] print:bg-transparent"
                         : "bg-[#121822] print:bg-transparent";
 
-                const labelColor = isToday ? "text-gold" : (isKadirGecesi || isBayram) ? "text-gold-light" : "text-cream-muted";
+                const labelColor = isToday
+                  ? "text-gold print:text-black print:font-bold"
+                  : isKadirGecesi || isBayram
+                    ? "text-gold-light print:text-black print:font-semibold"
+                    : "text-cream-muted print:text-gray-700";
                 const cellColor = isBayram
-                  ? "text-gold font-bold"
+                  ? "text-gold font-bold print:text-black"
                   : isToday
-                    ? "text-gold font-semibold"
-                    : "text-cream";
+                    ? "text-gold font-semibold print:text-black"
+                    : "text-cream print:text-black";
 
                 return (
                   <tr
                     key={day.dateKey}
-                    className={`border-b transition-colors ${rowColor}`}
+                    className={`border-b print:border-gray-200 transition-colors ${rowColor}`}
                     style={{ borderColor: "hsl(var(--gold) / 0.1)" }}
                   >
                     {isBayram ? (
                       <td colSpan={8} className="px-3 py-3 text-center">
                         <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6">
-                          <div className="flex items-center gap-2.5 text-gold-light font-display font-bold text-base md:text-xl transition-transform duration-300 hover:scale-105">
+                          <div className="flex items-center gap-2.5 text-gold-light print:text-black font-display font-bold text-base md:text-xl transition-transform duration-300 hover:scale-105">
                             <Candy className="h-5 w-5 md:h-6 md:w-6" />
-                            <span>{day.dateLabel} {getDayName(day.dateKey)} - Ramazan Bayrami</span>
+                            <span>{day.dateLabel} {getDayName(day.dateKey)} - Ramazan Bayramı</span>
                           </div>
-                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gold/15 border border-gold/40 rounded-full animate-pulse-gold shadow-[0_0_15px_rgba(212,175,55,0.1)]">
-                            <span className="text-gold font-bold text-sm md:text-base">
-                              Bayram Namazi: {calculateBayramTime(day.times.Sunrise)}
+                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gold/15 print:bg-transparent border border-gold/40 print:border-gray-400 rounded-full animate-pulse-gold shadow-[0_0_15px_rgba(212,175,55,0.1)] print:shadow-none">
+                            <span className="text-gold print:text-black font-bold text-sm md:text-base">
+                              Bayram Namazı: {calculateBayramTime(day.times.Sunrise)}
                             </span>
                           </div>
                         </div>
@@ -203,10 +217,17 @@ const Imsakiye = ({ city, period: propPeriod, todayKey }: ImsakiyeProps) => {
                         <td className={`sticky print:static left-0 print:left-auto z-10 print:z-auto px-2 md:px-3 py-1.5 md:py-2.5 font-semibold ${stickyBg} ${labelColor} w-10 min-w-[2.5rem]`}>
                           {String(i + 1)}
                         </td>
-                        <td className={`sticky print:static left-10 print:left-auto z-10 print:z-auto px-2 md:px-3 py-1.5 md:py-2.5 whitespace-nowrap border-r border-gold/20 shadow-[2px_0_5px_rgba(0,0,0,0.3)] ${stickyBg} ${labelColor}`}>
+                        <td className={`sticky print:static left-10 print:left-auto z-10 print:z-auto px-2 md:px-3 py-1.5 md:py-2.5 whitespace-nowrap border-r border-gold/20 print:border-gray-300 print:shadow-none shadow-[2px_0_5px_rgba(0,0,0,0.3)] ${stickyBg} ${labelColor}`}>
                           <div className="flex flex-col leading-none">
-                            <span className="mb-0.5">{day.dateLabel}</span>
-                            <span className="text-[10px] md:text-[11px] opacity-60 font-normal">{getDayName(day.dateKey)}</span>
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span>{day.dateLabel}</span>
+                              {isKadirGecesi && (
+                                <span className="inline-block px-1.5 py-0.5 text-[9px] font-semibold rounded bg-[hsla(280,60%,55%,0.25)] text-purple-200 border border-purple-400/30 print:bg-transparent print:text-black print:border-gray-400">
+                                  Kadir Gecesi
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] md:text-[11px] opacity-60 font-normal print:opacity-100">{getDayName(day.dateKey)}</span>
                           </div>
                         </td>
                         {prayerKeys.map((key) => (

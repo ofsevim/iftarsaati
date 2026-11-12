@@ -15,15 +15,19 @@ import {
 import {
   fetchUpcomingRamadanPeriod,
   findNearestCity,
+  getCurrentPrayer,
+  type RamadanPeriod,
 } from "@/lib/prayer-api";
+import {
+  computeCountdown,
+  type CountdownState,
+  type CountdownTarget,
+} from "@/lib/prayer-countdown";
 import { normalizeForSearch } from "@/lib/utils";
 import { usePrayerDay } from "@/hooks/use-prayer-day";
 
-type CountdownMode = "Fajr" | "Sunrise" | "Dhuhr" | "Asr" | "Maghrib" | "Isha" | "bayram";
-
 function safeStorageGet(key: string): string | null {
   try {
-
     return localStorage.getItem(key);
   } catch {
     return null;
@@ -38,6 +42,24 @@ function safeStorageSet(key: string, value: string): void {
   }
 }
 
+function formatDisplayDate(dateKey: string): string {
+  const parts = dateKey.split("-").map(Number);
+  const date = parts.length === 3 && parts.every(Number.isFinite)
+    ? new Date(parts[0], parts[1] - 1, parts[2])
+    : new Date();
+  return date.toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" });
+}
+
+const INITIAL_COUNTDOWN: CountdownState = {
+  hours: 0,
+  minutes: 0,
+  seconds: 0,
+  passed: false,
+  mode: "Maghrib",
+  unavailable: false,
+  isMaghribWindow: false,
+};
+
 const Index = () => {
   const [selectedCity, setSelectedCity] = useState<City>(() => {
     const savedCity = safeStorageGet("selectedCity");
@@ -50,30 +72,28 @@ const Index = () => {
   const { prayerTimes, tomorrowFajr, isRamadan, loading, dateKey } = usePrayerDay(selectedCity);
   const [ramadanData, setRamadanData] = useState<{
     key: string;
-    period: import("@/lib/prayer-api").RamadanPeriod | null;
+    period: RamadanPeriod | null;
   } | null>(null);
   const ramadanKey = `${selectedCity.name}:${dateKey}`;
   const ramadanPeriod = ramadanData?.key === ramadanKey ? ramadanData.period : null;
   const bayramDateKey = ramadanPeriod?.bayramDateKey ?? null;
-  const [countdownTarget, setCountdownTarget] = useState<"smart_iftar" | "next_prayer">(() => {
+  const [countdownTarget, setCountdownTarget] = useState<CountdownTarget>(() => {
     const saved = safeStorageGet("countdownTarget");
     return (saved === "next_prayer" || saved === "smart_iftar") ? saved : "smart_iftar";
   });
   const [widgetModalOpen, setWidgetModalOpen] = useState(false);
-  const [countdown, setCountdown] = useState<{
-    hours: number;
-    minutes: number;
-    seconds: number;
-    passed: boolean;
-    mode: CountdownMode;
-  }>({ hours: 0, minutes: 0, seconds: 0, passed: false, mode: "Maghrib" });
+  const [widgetCopied, setWidgetCopied] = useState(false);
+  const [countdown, setCountdown] = useState<CountdownState>(INITIAL_COUNTDOWN);
+  const [activePrayer, setActivePrayer] = useState<keyof PrayerTimes | null>(null);
   const [locating, setLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const azanAudioRef = useRef<HTMLAudioElement | null>(null);
   const azanPlayedRef = useRef(false);
   const [azanEnabled, setAzanEnabled] = useState<boolean>(() => safeStorageGet("azanEnabled") === "true");
+  const [azanNotice, setAzanNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -81,22 +101,34 @@ const Index = () => {
         setDropdownOpen(false);
       }
     };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDropdownOpen(false);
+        setWidgetModalOpen(false);
+      }
+    };
 
+    if (dropdownOpen || widgetModalOpen) {
+      document.addEventListener("keydown", handleKeyDown);
+    }
     if (dropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [dropdownOpen]);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [dropdownOpen, widgetModalOpen]);
 
   const [favoriteCities, setFavoriteCities] = useState<string[]>(() => {
     const saved = safeStorageGet("favoriteCities");
     if (saved) {
       try {
-        const parsed = JSON.parse(saved) as string[];
-        // Geçerli şehirleri filtrele (TURKEY_CITIES'te olmayanları çıkar)
-        const validCityNames = TURKEY_CITIES.map((c) => c.name);
-        const filtered = parsed.filter((name) => validCityNames.includes(name));
-        if (filtered.length) return filtered;
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const validCityNames = new Set(TURKEY_CITIES.map((c) => c.name));
+          return parsed.filter((name): name is string => typeof name === "string" && validCityNames.has(name));
+        }
       } catch (error) {
         console.error("Failed to parse favorite cities:", error);
       }
@@ -106,7 +138,6 @@ const Index = () => {
 
   const toggleFavorite = (cityName: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Tüm geçerli şehirler favorilere eklenebilir
     if (!TURKEY_CITIES.some((c) => c.name === cityName)) return;
     const newFavorites = favoriteCities.includes(cityName)
       ? favoriteCities.filter((name) => name !== cityName)
@@ -116,19 +147,31 @@ const Index = () => {
   };
 
   useEffect(() => {
-    if (countdown.passed && countdown.mode === "Maghrib" && azanEnabled) {
-      if (!azanPlayedRef.current && azanAudioRef.current) {
-        azanPlayedRef.current = true;
-        azanAudioRef.current.play().catch(() => {});
-      }
-    } else if (!countdown.passed) {
-      azanPlayedRef.current = false;
+    if (!azanEnabled) {
       if (azanAudioRef.current && !azanAudioRef.current.paused) {
         azanAudioRef.current.pause();
         azanAudioRef.current.currentTime = 0;
       }
+      setAzanNotice(null);
+      return;
     }
-  }, [countdown.passed, countdown.mode, azanEnabled]);
+
+    if (countdown.isMaghribWindow) {
+      if (!azanPlayedRef.current && azanAudioRef.current) {
+        azanPlayedRef.current = true;
+        if (typeof navigator !== "undefined" && navigator.onLine === false) {
+          setAzanNotice("Ezan sesi çevrimdışı modda oynatılamadı.");
+          return;
+        }
+        azanAudioRef.current.play().then(
+          () => setAzanNotice(null),
+          () => setAzanNotice("Tarayıcı otomatik sesi engelledi; ses açma izni gerekebilir.")
+        );
+      }
+    } else {
+      azanPlayedRef.current = false;
+    }
+  }, [countdown.isMaghribWindow, azanEnabled]);
 
   useEffect(() => {
     safeStorageSet("selectedCity", selectedCity.name);
@@ -149,126 +192,53 @@ const Index = () => {
   }, [selectedCity, dateKey, ramadanKey]);
 
   useEffect(() => {
-    if (!prayerTimes) return;
-
-    const getDateKey = (date: Date) =>
-      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-
-    const getTimeUntilEndOfDay = (now: Date) => {
-      const endOfDay = new Date(now);
-      endOfDay.setHours(23, 59, 59, 999);
-      const diff = endOfDay.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        return { hours: 0, minutes: 0, seconds: 0, passed: true };
-      }
-
-      const hours = Math.floor(diff / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      return { hours, minutes, seconds, passed: false };
-    };
+    if (!prayerTimes) {
+      setActivePrayer(null);
+      return;
+    }
 
     const updateCountdown = () => {
       const now = new Date();
-
-      // Bayram gününde özel sayaç: günün bitimine kadar geri sayım.
-      if (bayramDateKey && getDateKey(now) === bayramDateKey) {
-        const bayramCountdown = getTimeUntilEndOfDay(now);
-        setCountdown({ ...bayramCountdown, mode: "bayram" });
-        return;
-      }
-
-      const parseTimeOnDate = (base: Date, time: string) => {
-        const [h, m] = time.split(":").map(Number);
-        const d = new Date(base);
-        d.setHours(h, m, 0, 0);
-        return d;
-      };
-
-      const maghribToday = parseTimeOnDate(now, prayerTimes.Maghrib);
-      const fajrToday = parseTimeOnDate(now, prayerTimes.Fajr);
-      const maghribEnd = new Date(maghribToday.getTime() + 4 * 60 * 1000);
-
-      if (now.getTime() >= maghribToday.getTime() && now.getTime() <= maghribEnd.getTime()) {
-        setCountdown({ hours: 0, minutes: 0, seconds: 0, passed: true, mode: "Maghrib" });
-        return;
-      }
-
-      let targetTime: Date;
-      let targetMode: CountdownMode;
-
-      if (countdownTarget === "smart_iftar") {
-        // İmsak ile Akşam arasında: Hedef İFTAR (Maghrib)
-        if (now.getTime() < maghribToday.getTime() && now.getTime() >= fajrToday.getTime()) {
-          targetTime = maghribToday;
-          targetMode = "Maghrib";
-        } else if (now.getTime() < fajrToday.getTime()) {
-          // Gece yarısından imsaka kadar: Bugünkü İmsak (Sahur)
-          targetTime = fajrToday;
-          targetMode = "Fajr";
-        } else {
-          // Akşamdan gece yarısına kadar: Yarınki İmsak (Sahur)
-          const tomorrow = new Date(now);
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          targetTime = tomorrowFajr
-            ? parseTimeOnDate(tomorrow, tomorrowFajr)
-            : new Date(now.getTime() + 8 * 60 * 60 * 1000);
-          targetMode = "Fajr";
-        }
-      } else {
-        // Sıradaki vakit modu
-        const prayers: { name: CountdownMode; time: Date }[] = [
-          { name: "Fajr", time: fajrToday },
-          { name: "Sunrise", time: parseTimeOnDate(now, prayerTimes.Sunrise) },
-          { name: "Dhuhr", time: parseTimeOnDate(now, prayerTimes.Dhuhr) },
-          { name: "Asr", time: parseTimeOnDate(now, prayerTimes.Asr) },
-          { name: "Maghrib", time: maghribToday },
-          { name: "Isha", time: parseTimeOnDate(now, prayerTimes.Isha) },
-        ];
-
-        const nextPrayer = prayers.find((p) => p.time.getTime() > now.getTime());
-
-        if (nextPrayer) {
-          targetTime = nextPrayer.time;
-          targetMode = nextPrayer.name;
-        } else {
-          const tomorrow = new Date(now);
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          targetTime = tomorrowFajr
-            ? parseTimeOnDate(tomorrow, tomorrowFajr)
-            : new Date(now.getTime() + 12 * 60 * 60 * 1000);
-          targetMode = "Fajr";
-        }
-      }
-
-      const diff = Math.max(0, targetTime.getTime() - now.getTime());
-      setCountdown({
-        hours: Math.floor(diff / (1000 * 60 * 60)),
-        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-        seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        mode: targetMode,
-        passed: false,
-      });
+      setCountdown(
+        computeCountdown({
+          now,
+          prayerTimes,
+          tomorrowFajr,
+          targetMode: countdownTarget,
+          bayramDateKey,
+        })
+      );
+      setActivePrayer(getCurrentPrayer(prayerTimes, now));
     };
 
-    const interval = setInterval(() => {
-      updateCountdown();
-    }, 1000);
     updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
     return () => clearInterval(interval);
   }, [prayerTimes, tomorrowFajr, bayramDateKey, countdownTarget]);
 
   const handleLocate = () => {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setLocationMessage("Tarayıcınız konum özelliğini desteklemiyor.");
+      return;
+    }
     setLocating(true);
+    setLocationMessage(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const nearest = findNearestCity(pos.coords.latitude, pos.coords.longitude, TURKEY_CITIES);
         setSelectedCity(nearest);
         setLocating(false);
+        setLocationMessage(null);
       },
-      () => setLocating(false)
+      (err) => {
+        setLocating(false);
+        setLocationMessage(
+          err.code === err.PERMISSION_DENIED
+            ? "Konum izni verilmedi."
+            : "Konum alınamadı, lütfen tekrar deneyin."
+        );
+      },
+      { timeout: 8000, maximumAge: 60000 }
     );
   };
 
@@ -294,41 +264,33 @@ const Index = () => {
     <div className="min-h-screen relative overflow-hidden">
       {/* Background */}
       <div
-        className="fixed inset-0 bg-cover bg-center bg-no-repeat"
+        className="fixed inset-0 bg-cover bg-center bg-no-repeat print:hidden"
         style={{ backgroundImage: `url(${bgPattern})` }}
       />
-      <div className="fixed inset-0 bg-background/60" />
+      <div className="fixed inset-0 bg-background/60 print:hidden" />
 
       {/* Side Ornaments - Mobile only — İslami geometrik altın motif */}
-      <svg aria-hidden="true" className="fixed inset-y-0 left-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden opacity-75" preserveAspectRatio="none">
+      <svg aria-hidden="true" className="fixed inset-y-0 left-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden print:hidden opacity-75" preserveAspectRatio="none">
         <defs>
           <pattern id="sideMotifL" x="0" y="0" width="40" height="80" patternUnits="userSpaceOnUse">
-            {/* Altın çizgi çerçeve */}
             <line x1="38" y1="0" x2="38" y2="80" stroke="hsl(36,55%,55%)" strokeWidth="0.5" opacity="0.25" />
-            {/* Tekrar eden sekizgen geometrik desen */}
             <path d="M20,5 L30,15 L30,25 L20,35 L10,25 L10,15 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
             <path d="M20,45 L30,55 L30,65 L20,75 L10,65 L10,55 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
-            {/* Merkez yıldız */}
             <circle cx="20" cy="20" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
             <circle cx="20" cy="60" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
-            {/* Bağlantı çizgileri */}
             <line x1="20" y1="35" x2="20" y2="45" stroke="hsl(36,55%,55%)" strokeWidth="0.4" opacity="0.15" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#sideMotifL)" />
       </svg>
-      <svg aria-hidden="true" className="fixed inset-y-0 right-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden opacity-75" preserveAspectRatio="none">
+      <svg aria-hidden="true" className="fixed inset-y-0 right-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden print:hidden opacity-75" preserveAspectRatio="none">
         <defs>
           <pattern id="sideMotifR" x="0" y="0" width="40" height="80" patternUnits="userSpaceOnUse">
-            {/* Altın çizgi çerçeve */}
             <line x1="2" y1="0" x2="2" y2="80" stroke="hsl(36,55%,55%)" strokeWidth="0.5" opacity="0.25" />
-            {/* Tekrar eden sekizgen geometrik desen */}
             <path d="M20,5 L30,15 L30,25 L20,35 L10,25 L10,15 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
             <path d="M20,45 L30,55 L30,65 L20,75 L10,65 L10,55 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
-            {/* Merkez yıldız */}
             <circle cx="20" cy="20" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
             <circle cx="20" cy="60" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
-            {/* Bağlantı çizgileri */}
             <line x1="20" y1="35" x2="20" y2="45" stroke="hsl(36,55%,55%)" strokeWidth="0.4" opacity="0.15" />
           </pattern>
         </defs>
@@ -336,9 +298,9 @@ const Index = () => {
       </svg>
 
       {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(2rem+env(safe-area-inset-bottom,0px))] md:py-12">
+      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(2rem+env(safe-area-inset-bottom,0px))] md:py-12 print:min-h-0 print:p-0 print:block">
         {/* Header */}
-        <div className="text-center mb-8 md:mb-12">
+        <div className="text-center mb-8 md:mb-12 print:hidden">
           <div className="flex items-center justify-center gap-3 mb-3">
             <Moon className="w-8 h-8 text-gold animate-pulse-gold" />
             <h1 className="text-4xl md:text-5xl font-display font-bold text-gold">
@@ -352,23 +314,25 @@ const Index = () => {
         </div>
 
         {/* City Selection */}
-        <div className="w-full max-w-2xl mb-8 space-y-4">
+        <div className="w-full max-w-2xl mb-8 space-y-4 print:hidden">
           {/* Quick Cities */}
-          <div className="flex flex-wrap justify-center gap-2">
-            {favoriteCities.map((name) => {
-              const city = TURKEY_CITIES.find((c) => c.name === name);
-              if (!city) return null;
-              return (
-                <button
-                  key={name}
-                  onClick={() => handleCitySelect(city)}
-                  className={`quick-btn ${selectedCity.name === name ? "selected" : ""}`}
-                >
-                  {name}
-                </button>
-              );
-            })}
-          </div>
+          {favoriteCities.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-2">
+              {favoriteCities.map((name) => {
+                const city = TURKEY_CITIES.find((c) => c.name === name);
+                if (!city) return null;
+                return (
+                  <button
+                    key={name}
+                    onClick={() => handleCitySelect(city)}
+                    className={`quick-btn ${selectedCity.name === name ? "selected" : ""}`}
+                  >
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Location & Dropdown Row */}
           <div className="flex gap-2 sm:gap-3 justify-center w-full">
@@ -381,9 +345,11 @@ const Index = () => {
               <span className="whitespace-nowrap">{locating ? "..." : "Konum"}</span>
             </button>
 
-            <div className="relative flex-grow max-w-[200px]" ref={dropdownRef}>
+            <div className="relative flex-grow max-w-[240px]" ref={dropdownRef}>
               <button
                 onClick={() => setDropdownOpen(!dropdownOpen)}
+                aria-expanded={dropdownOpen}
+                aria-haspopup="listbox"
                 className="glass-card gold-border px-3 sm:px-4 py-2.5 min-h-[42px] flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream w-full justify-between touch-manipulation active:scale-[0.99]"
               >
                 <span className="truncate">{selectedCity.name}</span>
@@ -391,7 +357,7 @@ const Index = () => {
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 w-full bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border overflow-hidden flex flex-col shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute top-full mt-2 left-0 w-full min-w-[220px] bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border overflow-hidden flex flex-col shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
                   <div className="p-3 border-b border-white/10">
                     <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5">
                       <Search className="w-4 h-4 text-muted-foreground" />
@@ -404,34 +370,42 @@ const Index = () => {
                       />
                     </div>
                   </div>
-                  <div className="overflow-y-auto max-h-[300px]">
-                    {filteredCities.map((city) => {
-                      const isFavorite = favoriteCities.includes(city.name);
-                      return (
-                        <div
-                          key={city.name}
-                          className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors cursor-pointer ${selectedCity.name === city.name
-                            ? "bg-night-light"
-                            : "hover:bg-night-light"
+                  <div role="listbox" aria-label="Şehirler" className="overflow-y-auto max-h-[300px]">
+                    {filteredCities.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-xs text-cream-muted">
+                        Eşleşen şehir bulunamadı.
+                      </div>
+                    ) : (
+                      filteredCities.map((city) => {
+                        const isFavorite = favoriteCities.includes(city.name);
+                        return (
+                          <div
+                            key={city.name}
+                            role="option"
+                            aria-selected={selectedCity.name === city.name}
+                            className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors cursor-pointer ${
+                              selectedCity.name === city.name
+                                ? "bg-night-light"
+                                : "hover:bg-night-light"
                             }`}
-                          onClick={() => handleCitySelect(city)}
-                        >
-                          <span className={selectedCity.name === city.name ? "text-gold" : "text-cream-muted"}>
-                            {city.name}
-                          </span>
-                          <button
-                            onClick={(e) => toggleFavorite(city.name, e)}
-                            className="p-2 -mr-1 text-muted-foreground hover:text-gold transition-colors touch-manipulation flex items-center justify-center min-w-[36px] min-h-[36px]"
-                            aria-label={`${city.name} şehrini favorilere ${isFavorite ? "çıkar" : "ekle"}`}
+                            onClick={() => handleCitySelect(city)}
                           >
-                            <Star
-                              className={`w-4 h-4 ${isFavorite ? "text-gold fill-gold" : "text-muted-foreground"
-                                }`}
-                            />
-                          </button>
-                        </div>
-                      );
-                    })}
+                            <span className={selectedCity.name === city.name ? "text-gold" : "text-cream-muted"}>
+                              {city.name}
+                            </span>
+                            <button
+                              onClick={(e) => toggleFavorite(city.name, e)}
+                              className="p-2 -mr-1 text-muted-foreground hover:text-gold transition-colors touch-manipulation flex items-center justify-center min-w-[36px] min-h-[36px]"
+                              aria-label={`${city.name} şehrini favorilere ${isFavorite ? "çıkar" : "ekle"}`}
+                            >
+                              <Star
+                                className={`w-4 h-4 ${isFavorite ? "text-gold fill-gold" : "text-muted-foreground"}`}
+                              />
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               )}
@@ -459,16 +433,23 @@ const Index = () => {
               }
             </button>
           </div>
+
+          {(locationMessage || azanNotice) && (
+            <p className="text-center text-xs text-amber-300/90" role="status">
+              {locationMessage || azanNotice}
+            </p>
+          )}
         </div>
 
         <audio
           ref={azanAudioRef}
           src="https://cdn.islamic.network/prayer-times/audio/adhan-makkah.mp3"
           preload="none"
+          className="print:hidden"
         />
 
         {/* Countdown */}
-        <div className="mb-10 text-center">
+        <div className="mb-10 text-center print:hidden">
           {/* Countdown Target Switcher */}
           <div className="flex items-center justify-center gap-2 mb-4">
             <button
@@ -501,7 +482,7 @@ const Index = () => {
 
           <h2 className="font-display text-xl md:text-2xl text-gold-light mb-6">
             {countdown.mode === "bayram"
-              ? (countdown.passed ? "Bayram Günü" : "Bayramın Bitimine Kalan Süre")
+              ? "Ramazan Bayramı"
               : countdown.passed && countdown.mode === "Maghrib"
                 ? (isRamadan ? "İftar vakti" : "Akşam vakti")
                 : countdown.mode === "Fajr"
@@ -526,7 +507,11 @@ const Index = () => {
           ) : countdown.passed && countdown.mode === "bayram" ? (
             <div className="text-2xl md:text-3xl font-display text-gold">Bayramınız Mübarek Olsun! 🎉</div>
           ) : countdown.passed && countdown.mode === "Maghrib" ? (
-            <div className="text-2xl md:text-3xl font-display text-gold">Hayırlı İftarlar! 🌙</div>
+            <div className="text-2xl md:text-3xl font-display text-gold">
+              {isRamadan ? "Hayırlı İftarlar! 🌙" : "Akşam Vakti Girdi 🌙"}
+            </div>
+          ) : countdown.unavailable ? (
+            <div className="text-cream-muted">Yarının imsak vakti şu an alınamadı.</div>
           ) : (
             <div
               className="flex items-center gap-1.5 sm:gap-3 md:gap-4 justify-center"
@@ -535,17 +520,17 @@ const Index = () => {
               aria-atomic="true"
             >
               <div className="text-center">
-                <div className="countdown-digit">{pad(countdown.hours || 0)}</div>
+                <div className="countdown-digit">{pad(countdown.hours)}</div>
                 <span className="text-[11px] sm:text-xs text-cream-muted mt-1.5 sm:mt-2 block">Saat</span>
               </div>
               <span className="text-2xl sm:text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
               <div className="text-center">
-                <div className="countdown-digit">{pad(countdown.minutes || 0)}</div>
+                <div className="countdown-digit">{pad(countdown.minutes)}</div>
                 <span className="text-[11px] sm:text-xs text-cream-muted mt-1.5 sm:mt-2 block">Dakika</span>
               </div>
               <span className="text-2xl sm:text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
               <div className="text-center">
-                <div className="countdown-digit">{pad(countdown.seconds || 0)}</div>
+                <div className="countdown-digit">{pad(countdown.seconds)}</div>
                 <span className="text-[11px] sm:text-xs text-cream-muted mt-1.5 sm:mt-2 block">Saniye</span>
               </div>
             </div>
@@ -554,15 +539,15 @@ const Index = () => {
 
         {/* Prayer Times */}
         {prayerTimes && (
-          <div className="w-full max-w-3xl mb-10">
+          <div className="w-full max-w-3xl mb-10 print:hidden">
             <h3 className="font-display text-lg text-gold-light text-center mb-4">
-              {selectedCity.name} — {new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", weekday: "long" })} — Namaz Vakitleri
+              {selectedCity.name} — {formatDisplayDate(dateKey)} — Namaz Vakitleri
             </h3>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
               {(Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[]).map((key) => (
                 <div
                   key={key}
-                  className="prayer-card"
+                  className={`prayer-card ${activePrayer === key ? "active" : ""}`}
                 >
                   <div className="mb-1 flex items-center justify-center">
                     {(() => {
@@ -587,17 +572,26 @@ const Index = () => {
           </div>
         )}
 
-
         {/* Daily Content */}
-        <DailyContentCard />
+        <div className="w-full print:hidden">
+          <DailyContentCard dateKey={dateKey} />
+        </div>
 
         {/* Imsakiye */}
-        <Imsakiye city={selectedCity} period={ramadanPeriod} todayKey={dateKey} />
+        <Imsakiye
+          city={selectedCity}
+          period={ramadanPeriod}
+          loading={ramadanData?.key !== ramadanKey}
+          todayKey={dateKey}
+        />
 
         {/* Footer */}
-        <footer className="mt-4 mb-2 text-center flex flex-col items-center gap-2">
+        <footer className="mt-4 mb-2 text-center flex flex-col items-center gap-2 print:hidden">
           <button
-            onClick={() => setWidgetModalOpen(true)}
+            onClick={() => {
+              setWidgetCopied(false);
+              setWidgetModalOpen(true);
+            }}
             className="text-xs text-gold/80 hover:text-gold underline transition-colors"
           >
             Sitenize İftar Sayacı Ekleyin (Widget)
@@ -618,8 +612,17 @@ const Index = () => {
 
         {/* Widget Modal */}
         {widgetModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in">
-            <div className="glass-card gold-border p-6 max-w-md w-full relative shadow-2xl">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in print:hidden"
+            onClick={() => setWidgetModalOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="widget-modal-title"
+              className="glass-card gold-border p-6 max-w-md w-full relative shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={() => setWidgetModalOpen(false)}
                 className="absolute top-3 right-3 p-2 text-cream-muted hover:text-gold transition-colors text-lg touch-manipulation flex items-center justify-center min-w-[36px] min-h-[36px]"
@@ -627,7 +630,7 @@ const Index = () => {
               >
                 ✕
               </button>
-              <h3 className="text-lg font-display text-gold font-bold mb-2">
+              <h3 id="widget-modal-title" className="text-lg font-display text-gold font-bold mb-2">
                 Web Sitenize İftar Sayacı Ekleyin
               </h3>
               <p className="text-xs text-cream-muted mb-4">
@@ -637,13 +640,21 @@ const Index = () => {
                 {`<iframe src="https://iftarsaati.netlify.app/widget?city=${encodeURIComponent(selectedCity.name)}" width="300" height="220" frameborder="0" style="border:none; overflow:hidden;" scrolling="no"></iframe>`}
               </div>
               <button
-                onClick={() => {
+                onClick={async () => {
                   const code = `<iframe src="https://iftarsaati.netlify.app/widget?city=${encodeURIComponent(selectedCity.name)}" width="300" height="220" frameborder="0" style="border:none; overflow:hidden;" scrolling="no"></iframe>`;
-                  navigator.clipboard.writeText(code);
+                  try {
+                    if (navigator.clipboard?.writeText) {
+                      await navigator.clipboard.writeText(code);
+                      setWidgetCopied(true);
+                      setTimeout(() => setWidgetCopied(false), 2000);
+                    }
+                  } catch {
+                    setWidgetCopied(false);
+                  }
                 }}
                 className="w-full glass-card gold-border py-2 text-sm text-gold hover:bg-gold/10 transition-colors font-medium"
               >
-                Kodu Kopyala
+                {widgetCopied ? "Kodu Kopyalandı ✓" : "Kodu Kopyala"}
               </button>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
@@ -34,23 +35,19 @@ async function cleanupServiceWorkersAndCaches() {
   }
 }
 
-// Problemli cihazlarda SW kapalı, diğerlerinde aktif.
+// Native Capacitor kabuğunda veya eski Chrome sürümlerinde SW kapalıdır.
 function initServiceWorker() {
   if (!import.meta.env.PROD) return;
   if (!("serviceWorker" in navigator)) return;
 
   window.addEventListener("load", async () => {
-    if (isProblematicBrowser()) {
+    if (Capacitor.getPlatform() !== "web" || isProblematicBrowser()) {
       await cleanupServiceWorkersAndCaches();
-      console.log("Problemli tarayıcı tespit edildi: Service Worker devre dışı.");
       return;
     }
 
     navigator.serviceWorker
       .register("/sw.js", { scope: "/" })
-      .then((registration) => {
-        console.log("Service Worker başarıyla kaydedildi:", registration);
-      })
       .catch((error) => {
         console.error("Service Worker kaydı başarısız:", error);
       });

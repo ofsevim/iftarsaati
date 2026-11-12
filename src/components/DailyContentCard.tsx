@@ -2,6 +2,15 @@ import { useMemo, useState, useRef, useEffect } from "react";
 import { BookOpen, Scroll } from "lucide-react";
 import { DAILY_DUAS, type DailyContentItem } from "@/data/daily-content";
 import { fetchDailyAyah, type AyahData } from "@/lib/quran-api";
+import { formatLocalDateKey } from "@/lib/prayer-countdown";
+
+function parseDateKey(key: string): Date {
+  const parts = key.split("-").map(Number);
+  if (parts.length === 3 && parts.every(Number.isFinite)) {
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+  return new Date();
+}
 
 function getDailyIndex(now: Date, size: number): number {
   const y = now.getFullYear();
@@ -14,29 +23,62 @@ function getDailyIndex(now: Date, size: number): number {
 const TABS = ["dua", "ayet"] as const;
 type Tab = (typeof TABS)[number];
 
-const DailyContentCard = () => {
-  const now = useMemo(() => new Date(), []);
+const TAB_LABELS: Record<Tab, string> = {
+  dua: "Günün Duası",
+  ayet: "Günün Ayeti",
+};
+
+interface DailyContentCardProps {
+  dateKey?: string;
+}
+
+const DailyContentCard = ({ dateKey }: DailyContentCardProps) => {
+  const [internalDateKey, setInternalDateKey] = useState(() => formatLocalDateKey(new Date()));
+  const effectiveDateKey = dateKey || internalDateKey;
+  const currentDate = useMemo(() => parseDateKey(effectiveDateKey), [effectiveDateKey]);
+
   const [tab, setTab] = useState<Tab>("dua");
-  const [ayah, setAyah] = useState<AyahData | null>(null);
+  const [ayahState, setAyahState] = useState<{ key: string; data: AyahData } | null>(null);
   const [ayahLoading, setAyahLoading] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
-  const duaIndex = getDailyIndex(now, DAILY_DUAS.length);
+  useEffect(() => {
+    if (dateKey) return;
+    let timerId: ReturnType<typeof setTimeout>;
+    const scheduleMidnight = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+      const ms = Math.max(1000, nextMidnight.getTime() - now.getTime());
+      timerId = setTimeout(() => {
+        setInternalDateKey(formatLocalDateKey(new Date()));
+        scheduleMidnight();
+      }, ms);
+    };
+    scheduleMidnight();
+    return () => clearTimeout(timerId);
+  }, [dateKey]);
 
+  const ayah = ayahState?.key === effectiveDateKey ? ayahState.data : null;
+  const duaIndex = getDailyIndex(currentDate, DAILY_DUAS.length);
   const item: DailyContentItem | null = tab === "dua" ? DAILY_DUAS[duaIndex] : null;
 
   useEffect(() => {
     if (tab !== "ayet" || ayah !== null) return;
+    let cancelled = false;
     setAyahLoading(true);
-    fetchDailyAyah()
+    fetchDailyAyah(currentDate)
       .then((data) => {
-        setAyah(data);
+        if (cancelled) return;
+        setAyahState({ key: effectiveDateKey, data });
         setAyahLoading(false);
       })
       .catch(() => {
-        setAyahLoading(false);
+        if (!cancelled) setAyahLoading(false);
       });
-  }, [tab, ayah]);
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, ayah, currentDate, effectiveDateKey]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -72,54 +114,75 @@ const DailyContentCard = () => {
         onTouchEnd={handleTouchEnd}
       >
         {/* Tab buttons */}
-        <div className="flex gap-2 mb-4">
-          <button onClick={() => setTab("dua")} className={tabStyle("dua")}>
+        <div role="tablist" aria-label="Günün içeriği" className="flex gap-2 mb-4">
+          <button
+            type="button"
+            role="tab"
+            id="daily-tab-dua"
+            aria-selected={tab === "dua"}
+            aria-controls="daily-tabpanel"
+            onClick={() => setTab("dua")}
+            className={tabStyle("dua")}
+          >
             <BookOpen className="w-4 h-4" />
-            Günün Duası
+            {TAB_LABELS.dua}
           </button>
-          <button onClick={() => setTab("ayet")} className={tabStyle("ayet")}>
+          <button
+            type="button"
+            role="tab"
+            id="daily-tab-ayet"
+            aria-selected={tab === "ayet"}
+            aria-controls="daily-tabpanel"
+            onClick={() => setTab("ayet")}
+            className={tabStyle("ayet")}
+          >
             <Scroll className="w-4 h-4" />
-            Günün Ayeti
+            {TAB_LABELS.ayet}
           </button>
         </div>
 
         {/* Content */}
-        {tab === "ayet" ? (
-          ayahLoading ? (
-            <div className="text-sm text-cream-muted animate-pulse">Ayet yükleniyor...</div>
-          ) : ayah ? (
-            <div className="space-y-3">
-              <p
-                dir="rtl"
-                className="text-right text-lg md:text-xl leading-loose text-cream"
-                style={{ fontFamily: "serif" }}
-              >
-                {ayah.arabic}
-              </p>
-              <p className="text-sm md:text-base leading-relaxed text-cream">
-                {ayah.turkish}
-              </p>
-              <p className="text-xs text-muted-foreground">{ayah.reference}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-cream-muted">Ayet alınamadı. İnternet bağlantınızı kontrol edin.</p>
-          )
-        ) : item ? (
-          <>
-            <p className="text-sm md:text-base leading-relaxed text-cream">{item.text}</p>
-            {item.source && (
-              <p className="mt-2 text-xs text-muted-foreground">{item.source}</p>
-            )}
-          </>
-        ) : null}
+        <div role="tabpanel" id="daily-tabpanel" aria-labelledby={`daily-tab-${tab}`}>
+          {tab === "ayet" ? (
+            ayahLoading ? (
+              <div className="text-sm text-cream-muted animate-pulse">Ayet yükleniyor...</div>
+            ) : ayah ? (
+              <div className="space-y-3">
+                <p
+                  dir="rtl"
+                  className="text-right text-lg md:text-xl leading-loose text-cream"
+                  style={{ fontFamily: "serif" }}
+                >
+                  {ayah.arabic}
+                </p>
+                <p className="text-sm md:text-base leading-relaxed text-cream">
+                  {ayah.turkish}
+                </p>
+                <p className="text-xs text-muted-foreground">{ayah.reference}</p>
+              </div>
+            ) : (
+              <p className="text-sm text-cream-muted">Ayet alınamadı. İnternet bağlantınızı kontrol edin.</p>
+            )
+          ) : item ? (
+            <>
+              <p className="text-sm md:text-base leading-relaxed text-cream">{item.text}</p>
+              {item.source && (
+                <p className="mt-2 text-xs text-muted-foreground">{item.source}</p>
+              )}
+            </>
+          ) : null}
+        </div>
 
         {/* Dot indicators */}
         <div className="flex items-center justify-center gap-1.5 mt-3">
           {TABS.map((t) => (
-            <div
+            <button
               key={t}
-              className={`h-1.5 rounded-full transition-all ${
-                tab === t ? "bg-gold w-3" : "bg-cream-muted/30 w-1.5"
+              type="button"
+              onClick={() => setTab(t)}
+              aria-label={TAB_LABELS[t]}
+              className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                tab === t ? "bg-gold w-3" : "bg-cream-muted/30 w-1.5 hover:bg-cream-muted/60"
               }`}
             />
           ))}

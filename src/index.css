@@ -99,15 +99,15 @@
   .glass-card {
     @apply rounded-2xl border;
     background: rgba(15, 20, 25, 0.6);
-    border-color: rgba(36, 55, 55, 0.25);
+    border-color: hsla(36, 55%, 55%, 0.22);
     box-shadow: 0 8px 32px rgba(20, 20, 20, 0.4);
   }
 
   .glass-card-backdrop {
     @apply rounded-2xl border backdrop-blur-xl;
-    background: hsla(var(--glass-bg));
-    border-color: hsla(var(--glass-border));
-    box-shadow: 0 8px 32px hsla(var(--glass-shadow));
+    background: hsla(220, 30%, 15%, 0.65);
+    border-color: hsla(36, 40%, 50%, 0.25);
+    box-shadow: 0 8px 32px hsla(220, 40%, 4%, 0.45);
   }
 
   .gold-border {
@@ -169,13 +169,13 @@
   .quick-btn:hover {
     color: hsl(var(--gold));
     border-color: hsl(var(--gold) / 0.5);
-    background: rgba(36, 55, 55, 0.08);
+    background: hsla(36, 55%, 55%, 0.1);
   }
 
   .quick-btn.selected {
     color: hsl(var(--gold));
     border-color: hsl(var(--gold) / 0.6);
-    background: rgba(36, 55, 55, 0.12);
+    background: hsla(36, 55%, 55%, 0.16);
     @apply gold-glow;
   }
 }
@@ -201,15 +201,18 @@
   }
 }
 
-.animate-in {
+.animate-slide-up {
   animation: slide-in-from-bottom 0.3s ease-out;
-}
-
-.slide-in-from-bottom-5 {
-  animation-name: slide-in-from-bottom;
 }
 
 /* Widget mode: transparent background for iframe embedding */
 body.widget-mode {
   background: transparent !important;
+}
+
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
 }

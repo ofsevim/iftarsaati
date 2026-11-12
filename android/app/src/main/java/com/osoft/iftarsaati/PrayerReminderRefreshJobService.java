@@ -21,6 +21,7 @@ import java.util.Map;
 
 public class PrayerReminderRefreshJobService extends JobService {
     private static final int JOB_ID = 731249;
+    private static final String CACHE_PREFS = "prayer_calendar_cache";
     private static final String[] KEYS = {"Fajr", "Sunrise", "Dhuhr", "Asr", "Maghrib", "Isha"};
     private static final String[] LABELS = {"İmsak", "Güneş", "Öğle", "İkindi", "Akşam", "Yatsı"};
 
@@ -99,23 +100,55 @@ public class PrayerReminderRefreshJobService extends JobService {
                 String key = KEYS[index];
                 int before = minutes.optInt(key, -1);
                 if (before < 0) continue;
-                String[] parts = timings.getString(key).split(" ")[0].split(":");
+                String rawTime = timings.optString(key, "").split(" ")[0].trim();
+                String[] parts = rawTime.split(":");
+                if (parts.length < 2) continue;
+                int hour;
+                int minute;
+                try {
+                    hour = Integer.parseInt(parts[0]);
+                    minute = Integer.parseInt(parts[1]);
+                } catch (NumberFormatException ignored) {
+                    continue;
+                }
+                if (hour < 0 || hour > 23 || minute < 0 || minute > 59) continue;
+
                 Calendar trigger = (Calendar) day.clone();
-                trigger.set(Calendar.HOUR_OF_DAY, Integer.parseInt(parts[0]));
-                trigger.set(Calendar.MINUTE, Integer.parseInt(parts[1]));
+                trigger.set(Calendar.HOUR_OF_DAY, hour);
+                trigger.set(Calendar.MINUTE, minute);
                 long triggerAt = trigger.getTimeInMillis() - before * 60_000L;
                 if (triggerAt <= System.currentTimeMillis()) continue;
 
-                String label = isRamadan && index == 4 ? "İftar" :
-                        isRamadan && index == 0 ? "Sahur" : LABELS[index];
+                boolean isIftar = isRamadan && index == 4;
+                boolean isSahur = isRamadan && index == 0;
+                String title;
+                String body;
+                if (isIftar) {
+                    title = before == 0 ? "İftar Vakti" : "İftar Yaklaşıyor";
+                    body = before == 0
+                            ? city + " için iftar vakti girdi."
+                            : city + " için iftara " + before + " dakika kaldı.";
+                } else if (isSahur) {
+                    title = "Sahur Vakti";
+                    body = before == 0
+                            ? city + " için sahur vakti girdi."
+                            : city + " için sahura " + before + " dakika kaldı.";
+                } else {
+                    String label = LABELS[index];
+                    String lowerLabel = label.toLowerCase(new java.util.Locale("tr", "TR"));
+                    title = label + " Vakti";
+                    body = before == 0
+                            ? city + " için " + lowerLabel + " vakti girdi."
+                            : city + " için " + lowerLabel + " vaktine " + before + " dakika kaldı.";
+                }
+
                 JSONObject reminder = new JSONObject();
                 reminder.put("id", Integer.parseInt(String.format(java.util.Locale.US,
                         "%02d%02d%02d%02d", year % 100, month, date, index)));
-                reminder.put("title", label + " Vakti");
-                reminder.put("body", city + " için " + label.toLowerCase(new java.util.Locale("tr", "TR")) +
-                        " vaktine " + before + " dakika kaldı.");
+                reminder.put("title", title);
+                reminder.put("body", body);
                 reminder.put("triggerAt", triggerAt);
-                reminder.put("channel", isRamadan && (index == 0 || index == 4) ? "special" : "main");
+                reminder.put("channel", (isIftar || isSahur) ? "special" : "main");
                 reminders.put(reminder);
             }
         }
@@ -123,6 +156,42 @@ public class PrayerReminderRefreshJobService extends JobService {
     }
 
     private Map<String, JSONObject> fetchCalendar(int year, int month, double lat, double lng) throws Exception {
+        String cacheKey = String.format(java.util.Locale.US, "%d-%d-%.2f-%.2f", year, month, lat, lng);
+        android.content.SharedPreferences cachePrefs =
+                getApplicationContext().getSharedPreferences(CACHE_PREFS, Context.MODE_PRIVATE);
+
+        String rawJson = null;
+        Exception lastError = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                rawJson = downloadCalendarJson(year, month, lat, lng);
+                cachePrefs.edit().putString(cacheKey, rawJson).apply();
+                break;
+            } catch (Exception error) {
+                lastError = error;
+            }
+        }
+
+        if (rawJson == null) {
+            rawJson = cachePrefs.getString(cacheKey, null);
+        }
+        if (rawJson == null) {
+            throw lastError != null ? lastError : new IllegalStateException("Calendar fetch failed");
+        }
+
+        JSONArray data = new JSONObject(rawJson).getJSONArray("data");
+        Map<String, JSONObject> rows = new HashMap<>();
+        for (int i = 0; i < data.length(); i++) {
+            JSONObject row = data.getJSONObject(i);
+            JSONObject gregorian = row.getJSONObject("date").getJSONObject("gregorian");
+            String dateKey = gregorian.getInt("year") + "-" +
+                    gregorian.getJSONObject("month").getInt("number") + "-" + gregorian.getInt("day");
+            rows.put(dateKey, row);
+        }
+        return rows;
+    }
+
+    private String downloadCalendarJson(int year, int month, double lat, double lng) throws Exception {
         URL url = new URL("https://api.aladhan.com/v1/calendar/" + year + "/" + month +
                 "?latitude=" + lat + "&longitude=" + lng + "&method=13");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -138,16 +207,7 @@ public class PrayerReminderRefreshJobService extends JobService {
                 String line;
                 while ((line = reader.readLine()) != null) body.append(line);
             }
-            JSONArray data = new JSONObject(body.toString()).getJSONArray("data");
-            Map<String, JSONObject> rows = new HashMap<>();
-            for (int i = 0; i < data.length(); i++) {
-                JSONObject row = data.getJSONObject(i);
-                JSONObject gregorian = row.getJSONObject("date").getJSONObject("gregorian");
-                String dateKey = gregorian.getInt("year") + "-" +
-                        gregorian.getJSONObject("month").getInt("number") + "-" + gregorian.getInt("day");
-                rows.put(dateKey, row);
-            }
-            return rows;
+            return body.toString();
         } finally {
             connection.disconnect();
         }

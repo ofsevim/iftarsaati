@@ -7,9 +7,14 @@ import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
+
+import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -44,6 +49,7 @@ public class ReminderSchedulerPlugin extends Plugin {
     private static final String IDS_KEY = "ids";
     private static final String PAYLOADS_KEY = "payloads";
     private static final String NOTIFICATION_ALIAS = "notifications";
+    private static final String PERMISSION_REQUESTED_KEY = "notification_permission_requested";
     private static final String RENEWAL_PREFS_NAME = "prayer_reminder_renewal";
     private static final String RENEWAL_KEY = "config";
 
@@ -59,6 +65,10 @@ public class ReminderSchedulerPlugin extends Plugin {
             return;
         }
 
+        getContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(PERMISSION_REQUESTED_KEY, true)
+                .apply();
         requestPermissionForAlias(NOTIFICATION_ALIAS, call, "notificationPermissionCallback");
     }
 
@@ -91,17 +101,26 @@ public class ReminderSchedulerPlugin extends Plugin {
         }
         int id = notification.optInt("id", 99999901);
         long triggerAt = notification.optLong("triggerAt", 0L);
-        if (triggerAt <= System.currentTimeMillis()) {
+        long delayMs = triggerAt - System.currentTimeMillis();
+        if (delayMs <= 0) {
             call.reject("Test alarm must be in the future");
             return;
         }
-        Intent intent = new Intent(getContext(), PrayerReminderReceiver.class);
+        Context appContext = getContext().getApplicationContext();
+        Intent intent = new Intent(appContext, PrayerReminderReceiver.class);
         intent.putExtra("reminderId", id);
         intent.putExtra("title", notification.optString("title", "Vakt-i Şerif Test"));
         intent.putExtra("body", notification.optString("body", "Bildirimler çalışıyor."));
         intent.putExtra("channel", notification.optString("channel", "main"));
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms() && delayMs <= 15_000L) {
+            new Handler(Looper.getMainLooper()).postDelayed(() -> appContext.sendBroadcast(intent), delayMs);
+            call.resolve();
+            return;
+        }
+
         PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                getContext(), id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+                appContext, id, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         scheduleAlarm(alarmManager, triggerAt, pendingIntent);
         call.resolve();
@@ -243,11 +262,16 @@ public class ReminderSchedulerPlugin extends Plugin {
             return "granted";
         }
 
-        PermissionState state = getPermissionState(NOTIFICATION_ALIAS);
-        if (state == PermissionState.GRANTED) {
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED) {
             return "granted";
         }
-        if (state == PermissionState.DENIED) {
+
+        PermissionState state = getPermissionState(NOTIFICATION_ALIAS);
+        boolean wasRequested = getContext()
+                .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean(PERMISSION_REQUESTED_KEY, false);
+        if (state == PermissionState.DENIED || wasRequested) {
             return "denied";
         }
         return "default";

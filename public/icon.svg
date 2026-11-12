@@ -65,18 +65,18 @@
   <circle cx="175" cy="440" r="2" fill="#c9a961" opacity="0.4"/>
   
   <!-- Yazı -->
-  <text x="256" y="440" 
-        font-family="Georgia, 'Times New Roman', serif" 
-        font-size="82" 
-        font-weight="bold" 
-        fill="url(#goldGradient)" 
+  <text x="256" y="438"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="72"
+        font-weight="bold"
+        fill="url(#goldGradient)"
         text-anchor="middle"
-        letter-spacing="3">İFTAR</text>
-  <text x="256" y="482" 
-        font-family="Georgia, 'Times New Roman', serif" 
-        font-size="44" 
-        fill="#c9a961" 
+        letter-spacing="2">VAKT-İ</text>
+  <text x="256" y="482"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-size="44"
+        fill="#c9a961"
         text-anchor="middle"
         opacity="0.85"
-        letter-spacing="6">VAKTİ</text>
+        letter-spacing="6">ŞERİF</text>
 </svg>

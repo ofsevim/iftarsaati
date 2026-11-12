@@ -39,19 +39,19 @@
   <circle cx="360" cy="360" r="3" fill="#c9a961" opacity="0.5"/>
   <circle cx="380" cy="390" r="4" fill="#c9a961" opacity="0.6"/>
   
-  <text x="256" y="430" 
-        font-family="Georgia, serif" 
-        font-size="90" 
-        font-weight="bold" 
-        fill="url(#goldGradient512)" 
+  <text x="256" y="426"
+        font-family="Georgia, serif"
+        font-size="76"
+        font-weight="bold"
+        fill="url(#goldGradient512)"
         text-anchor="middle"
-        letter-spacing="2">İFTAR</text>
-  <text x="256" y="475" 
-        font-family="Georgia, serif" 
-        font-size="50" 
-        font-weight="normal" 
-        fill="#c9a961" 
+        letter-spacing="2">VAKT-İ</text>
+  <text x="256" y="475"
+        font-family="Georgia, serif"
+        font-size="48"
+        font-weight="normal"
+        fill="#c9a961"
         text-anchor="middle"
         opacity="0.9"
-        letter-spacing="4">VAKTİ</text>
+        letter-spacing="4">ŞERİF</text>
 </svg>

@@ -25,13 +25,35 @@ public class PrayerReminderReceiver extends BroadcastReceiver {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
 
-        String channel = "special".equals(intent.getStringExtra("channel")) ? "special" : "main";
+        String rawChannel = intent.getStringExtra("channel");
+        String channel;
+        String channelLabel;
+        if ("special".equals(rawChannel)) {
+            channel = "special";
+            channelLabel = "İftar ve Sahur";
+        } else if ("azan".equals(rawChannel)) {
+            channel = "azan";
+            channelLabel = "Ezan Vakti";
+        } else {
+            channel = "main";
+            channelLabel = "Namaz Vakitleri";
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(new NotificationChannel(
                     channel,
-                    "special".equals(channel) ? "İftar ve Sahur" : "Namaz Vakitleri",
+                    channelLabel,
                     NotificationManager.IMPORTANCE_HIGH
             ));
+        }
+
+        String title = intent.getStringExtra("title");
+        if (title == null || title.trim().isEmpty()) {
+            title = "Vakt-i Şerif";
+        }
+        String body = intent.getStringExtra("body");
+        if (body == null) {
+            body = "";
         }
 
         Intent launch = new Intent(context, MainActivity.class);
@@ -40,9 +62,11 @@ public class PrayerReminderReceiver extends BroadcastReceiver {
                 context, 0, launch, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         NotificationCompat.Builder notification = new NotificationCompat.Builder(context, channel)
-                .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle(intent.getStringExtra("title"))
-                .setContentText(intent.getStringExtra("body"))
+                .setSmallIcon(R.drawable.ic_stat_vaktiserif)
+                .setColor(0xFFC9A961)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
                 .setAutoCancel(true)
                 .setContentIntent(openApp)
                 .setPriority(NotificationCompat.PRIORITY_HIGH);
