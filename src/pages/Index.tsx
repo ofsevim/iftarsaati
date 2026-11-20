@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { MapPin, Search, ChevronDown, Moon, Star, Volume2, VolumeX, X } from "lucide-react";
+import { MapPin, Search, ChevronDown, Clock3, Moon, Star, Sun, Volume2, VolumeX, X } from "lucide-react";
 import Imsakiye from "@/components/Imsakiye";
 import DailyContentCard from "@/components/DailyContentCard";
 import InstallPrompt from "@/components/InstallPrompt";
@@ -62,6 +62,14 @@ const INITIAL_COUNTDOWN: CountdownState = {
 };
 
 const Index = () => {
+  const [theme, setTheme] = useState(() => safeStorageGet("vakt-theme") === "light" ? "light" : "dark");
+  const themeLabel = theme === "dark" ? "Açık temaya geç" : "Koyu temaya geç";
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "light" ? "#f7f3eb" : "#0c121d");
+  }, [theme]);
+
   const [selectedCity, setSelectedCity] = useState<City>(() => {
     const savedCity = safeStorageGet("selectedCity");
     if (savedCity) {
@@ -283,34 +291,33 @@ const Index = () => {
     <div className="min-h-screen relative overflow-hidden">
       {/* Background */}
       <div
-        className="fixed inset-0 bg-cover bg-center bg-no-repeat print:hidden"
+        className="page-art fixed inset-0 bg-cover bg-center bg-no-repeat print:hidden"
         style={{ backgroundImage: `url(${bgPattern})` }}
       />
-      <div className="fixed inset-0 bg-background/60 print:hidden" />
 
       {/* Side Ornaments - Mobile only — İslami geometrik altın motif */}
-      <svg aria-hidden="true" className="fixed inset-y-0 left-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden print:hidden opacity-75" preserveAspectRatio="none">
+      <svg aria-hidden="true" className="fixed inset-y-0 left-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden print:hidden text-gold opacity-40" preserveAspectRatio="none">
         <defs>
           <pattern id="sideMotifL" x="0" y="0" width="40" height="80" patternUnits="userSpaceOnUse">
-            <line x1="38" y1="0" x2="38" y2="80" stroke="hsl(36,55%,55%)" strokeWidth="0.5" opacity="0.25" />
-            <path d="M20,5 L30,15 L30,25 L20,35 L10,25 L10,15 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
-            <path d="M20,45 L30,55 L30,65 L20,75 L10,65 L10,55 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
-            <circle cx="20" cy="20" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
-            <circle cx="20" cy="60" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
-            <line x1="20" y1="35" x2="20" y2="45" stroke="hsl(36,55%,55%)" strokeWidth="0.4" opacity="0.15" />
+            <line x1="38" y1="0" x2="38" y2="80" stroke="currentColor" strokeWidth="0.5" opacity="0.25" />
+            <path d="M20,5 L30,15 L30,25 L20,35 L10,25 L10,15 Z" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.18" />
+            <path d="M20,45 L30,55 L30,65 L20,75 L10,65 L10,55 Z" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.18" />
+            <circle cx="20" cy="20" r="2" fill="currentColor" opacity="0.15" />
+            <circle cx="20" cy="60" r="2" fill="currentColor" opacity="0.15" />
+            <line x1="20" y1="35" x2="20" y2="45" stroke="currentColor" strokeWidth="0.4" opacity="0.15" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#sideMotifL)" />
       </svg>
-      <svg aria-hidden="true" className="fixed inset-y-0 right-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden print:hidden opacity-75" preserveAspectRatio="none">
+      <svg aria-hidden="true" className="fixed inset-y-0 right-0 w-6 sm:w-10 h-full z-0 pointer-events-none md:hidden print:hidden text-gold opacity-40" preserveAspectRatio="none">
         <defs>
           <pattern id="sideMotifR" x="0" y="0" width="40" height="80" patternUnits="userSpaceOnUse">
-            <line x1="2" y1="0" x2="2" y2="80" stroke="hsl(36,55%,55%)" strokeWidth="0.5" opacity="0.25" />
-            <path d="M20,5 L30,15 L30,25 L20,35 L10,25 L10,15 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
-            <path d="M20,45 L30,55 L30,65 L20,75 L10,65 L10,55 Z" fill="none" stroke="hsl(36,55%,55%)" strokeWidth="0.6" opacity="0.18" />
-            <circle cx="20" cy="20" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
-            <circle cx="20" cy="60" r="2" fill="hsl(36,60%,70%)" opacity="0.15" />
-            <line x1="20" y1="35" x2="20" y2="45" stroke="hsl(36,55%,55%)" strokeWidth="0.4" opacity="0.15" />
+            <line x1="2" y1="0" x2="2" y2="80" stroke="currentColor" strokeWidth="0.5" opacity="0.25" />
+            <path d="M20,5 L30,15 L30,25 L20,35 L10,25 L10,15 Z" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.18" />
+            <path d="M20,45 L30,55 L30,65 L20,75 L10,65 L10,55 Z" fill="none" stroke="currentColor" strokeWidth="0.6" opacity="0.18" />
+            <circle cx="20" cy="20" r="2" fill="currentColor" opacity="0.15" />
+            <circle cx="20" cy="60" r="2" fill="currentColor" opacity="0.15" />
+            <line x1="20" y1="35" x2="20" y2="45" stroke="currentColor" strokeWidth="0.4" opacity="0.15" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#sideMotifR)" />
@@ -321,11 +328,23 @@ const Index = () => {
         {/* Header */}
         <div className="text-center mb-4 md:mb-12 print:hidden">
           <div className="flex items-center justify-center gap-2 md:gap-3 mb-1 md:mb-3">
-            <Moon className="size-6 md:size-8 shrink-0 text-gold" aria-hidden="true" />
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-gold">
+            <Moon className="size-6 md:size-8 shrink-0 text-gold/80" aria-hidden="true" />
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-foreground">
               Vakt-i Şerif
             </h1>
-            <Moon className="size-6 md:size-8 shrink-0 text-gold" aria-hidden="true" />
+            <button
+              type="button"
+              className="size-11 shrink-0 grid place-items-center rounded-full border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground transition-colors touch-manipulation"
+              aria-label={themeLabel}
+              title={themeLabel}
+              onClick={() => {
+                const next = theme === "dark" ? "light" : "dark";
+                setTheme(next);
+                safeStorageSet("vakt-theme", next);
+              }}
+            >
+              {theme === "dark" ? <Sun className="size-5" aria-hidden="true" /> : <Moon className="size-5" aria-hidden="true" />}
+            </button>
           </div>
           <p className="text-cream-muted text-sm md:text-base">
             {isRamadan ? "Ramazan-ı Şerif'iniz mübarek olsun" : "Namaz Vakitleri & Güncel İmsakiye"}
@@ -361,7 +380,7 @@ const Index = () => {
             <button
               onClick={handleLocate}
               disabled={locating}
-              className="col-start-1 row-start-1 glass-card gold-border min-h-11 min-w-11 px-3 max-[359px]:px-0 sm:px-4 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream-muted hover:text-gold transition-colors cursor-pointer touch-manipulation"
+              className="col-start-1 row-start-1 glass-card min-h-11 min-w-11 px-3 max-[359px]:px-0 sm:px-4 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream-muted hover:text-gold transition-colors cursor-pointer touch-manipulation"
               aria-busy={locating}
             >
               <MapPin className={`size-4 ${locating ? "motion-safe:animate-pulse" : ""}`} aria-hidden="true" />
@@ -390,16 +409,16 @@ const Index = () => {
                 }}
                 aria-expanded={dropdownOpen}
                 aria-controls={dropdownOpen ? "city-picker" : undefined}
-                className="col-start-2 row-start-1 glass-card gold-border min-h-11 px-2 sm:px-4 flex items-center gap-1 sm:gap-2 text-sm max-[359px]:text-xs text-cream w-full min-w-0 justify-between touch-manipulation"
+                className="col-start-2 row-start-1 glass-card min-h-11 px-2 sm:px-4 flex items-center gap-1 sm:gap-2 text-sm max-[359px]:text-xs text-cream w-full min-w-0 justify-between touch-manipulation"
               >
                 <span className="min-w-0 break-words text-left">{selectedCity.name}</span>
                 <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {dropdownOpen && (
-                <section id="city-picker" aria-label="Şehir seçimi" className="city-control-panel col-span-full row-start-2 min-w-0 bg-[#0d1217] rounded-2xl gold-border shadow-xl z-50">
-                  <div className="p-3 border-b border-white/10">
-                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 focus-within:border-gold">
+                <section id="city-picker" aria-label="Şehir seçimi" className="city-control-panel col-span-full row-start-2 min-w-0 bg-popover rounded-2xl border shadow-xl z-50">
+                  <div className="p-3 border-b">
+                    <div className="flex items-center gap-2 bg-muted border rounded-xl px-3 focus-within:border-gold">
                       <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                       <input
                         ref={citySearchRef}
@@ -408,7 +427,7 @@ const Index = () => {
                         placeholder="Şehir ara..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="min-h-11 min-w-0 w-full bg-transparent text-base text-cream outline-none placeholder:text-cream/70"
+                        className="min-h-11 min-w-0 w-full bg-transparent text-base text-cream outline-none placeholder:text-muted-foreground"
                       />
                     </div>
                   </div>
@@ -424,7 +443,7 @@ const Index = () => {
                         return (
                           <div
                             key={city.name}
-                            className={`flex items-stretch rounded-xl ${isSelected ? "bg-night-light" : "hover:bg-night-light"}`}
+                            className={`flex items-stretch rounded-xl ${isSelected ? "bg-selection" : "hover:bg-muted"}`}
                           >
                             <button
                               type="button"
@@ -470,7 +489,7 @@ const Index = () => {
                 setAzanEnabled(newVal);
                 safeStorageSet("azanEnabled", String(newVal));
               }}
-              className="col-start-4 row-start-1 glass-card gold-border size-11 grid place-items-center hover:text-gold touch-manipulation"
+              className="col-start-4 row-start-1 glass-card size-11 grid place-items-center hover:text-gold touch-manipulation"
               aria-label={azanEnabled ? "Ezan sesini kapat" : "Ezan sesini aç"}
               title={azanEnabled ? "Ezan sesini kapat" : "Ezan sesini aç"}
             >
@@ -482,7 +501,7 @@ const Index = () => {
           </div>
 
           {(locationMessage || azanNotice) && (
-            <p className="text-center text-xs text-amber-300/90" role="status">
+            <p className="text-center text-xs text-warning" role="status">
               {locationMessage || azanNotice}
             </p>
           )}
@@ -505,13 +524,14 @@ const Index = () => {
                 safeStorageSet("countdownTarget", "smart_iftar");
               }}
               aria-pressed={countdownTarget === "smart_iftar"}
-              className={`min-h-11 text-xs px-2.5 sm:px-3 rounded-full transition-colors touch-manipulation ${
+              className={`min-h-11 flex items-center justify-center gap-1.5 text-xs px-2.5 sm:px-3 rounded-full transition-colors touch-manipulation ${
                 countdownTarget === "smart_iftar"
-                  ? "bg-gold/20 text-gold border border-gold/40 font-medium shadow-[0_0_10px_rgba(212,175,55,0.15)]"
-                  : "text-cream-muted hover:text-gold border border-transparent"
+                  ? "bg-selection text-gold border border-gold/40 font-medium"
+                  : "text-cream-muted hover:bg-muted border border-transparent"
               }`}
             >
-              🌙 İftar / Sahur Sayacı
+              <Moon className="size-3.5 shrink-0" aria-hidden="true" />
+              İftar / Sahur Sayacı
             </button>
             <button
               onClick={() => {
@@ -519,17 +539,18 @@ const Index = () => {
                 safeStorageSet("countdownTarget", "next_prayer");
               }}
               aria-pressed={countdownTarget === "next_prayer"}
-              className={`min-h-11 text-xs px-2.5 sm:px-3 rounded-full transition-colors touch-manipulation ${
+              className={`min-h-11 flex items-center justify-center gap-1.5 text-xs px-2.5 sm:px-3 rounded-full transition-colors touch-manipulation ${
                 countdownTarget === "next_prayer"
-                  ? "bg-gold/20 text-gold border border-gold/40 font-medium shadow-[0_0_10px_rgba(212,175,55,0.15)]"
-                  : "text-cream-muted hover:text-gold border border-transparent"
+                  ? "bg-selection text-gold border border-gold/40 font-medium"
+                  : "text-cream-muted hover:bg-muted border border-transparent"
               }`}
             >
-              ⏰ Sıradaki Vakit
+              <Clock3 className="size-3.5 shrink-0" aria-hidden="true" />
+              Sıradaki Vakit
             </button>
           </div>
 
-          <h2 id="countdown-title" className="font-display text-xl md:text-2xl text-gold-light mb-3 md:mb-6">
+          <h2 id="countdown-title" className="font-display text-xl md:text-2xl text-foreground mb-3 md:mb-6">
             {countdown.mode === "bayram"
               ? "Ramazan Bayramı"
               : countdown.passed && countdown.mode === "Maghrib"
@@ -588,38 +609,31 @@ const Index = () => {
         {/* Prayer Times */}
         {prayerTimes && (
           <section aria-labelledby="prayer-times-title" className="w-full max-w-3xl mb-6 md:mb-10 print:hidden">
-            <h3 id="prayer-times-title" className="font-display text-lg text-gold-light text-center">
+            <h3 id="prayer-times-title" className="font-display text-lg text-foreground text-center">
               {selectedCity.name} Namaz Vakitleri
             </h3>
             <p className="text-center text-sm text-cream-muted mb-3 md:mb-4">
               <time dateTime={dateKey}>{formatDisplayDate(dateKey)}</time>
             </p>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
-              {(Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[]).map((key) => (
-                <div
-                  key={key}
-                  className={`prayer-card ${activePrayer === key ? "active" : ""}`}
-                  aria-current={activePrayer === key ? "time" : undefined}
-                >
-                  <div className="mb-1 flex items-center justify-center">
-                    {(() => {
-                      const Icon = PRAYER_ICONS[key];
-                      return (
-                        <Icon
-                          aria-hidden="true"
-                          className="size-5 sm:size-6 text-gold-light"
-                        />
-                      );
-                    })()}
+              {(Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[]).map((key) => {
+                const Icon = PRAYER_ICONS[key];
+                const isActive = activePrayer === key;
+                return (
+                  <div key={key} className={`prayer-card ${isActive ? "active" : ""}`} aria-current={isActive ? "time" : undefined}>
+                    <div className="mb-1 flex flex-wrap items-center justify-center gap-1">
+                      <Icon aria-hidden="true" className={`size-5 sm:size-6 ${isActive ? "text-gold" : "text-muted-foreground"}`} />
+                      {isActive && <span className="rounded-full bg-gold/10 px-1.5 py-1 text-[10px] font-semibold leading-none text-gold whitespace-nowrap">Şu an</span>}
+                    </div>
+                    <div className="text-xs text-cream-muted mb-1">
+                      {isRamadan && key === "Maghrib" ? "İftar" : isRamadan && key === "Fajr" ? "Sahur" : PRAYER_LABELS[key]}
+                    </div>
+                    <div className={`text-lg font-semibold tabular-nums font-sans ${isActive ? "text-gold-light" : "text-cream"}`}>
+                      {prayerTimes[key]}
+                    </div>
                   </div>
-                  <div className="text-xs text-cream-muted mb-1">
-                    {isRamadan && key === "Maghrib" ? "İftar" : isRamadan && key === "Fajr" ? "Sahur" : PRAYER_LABELS[key]}
-                  </div>
-                  <div className="text-lg font-semibold tabular-nums text-cream font-sans">
-                    {prayerTimes[key]}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </section>
         )}
@@ -651,13 +665,13 @@ const Index = () => {
           >
             Sitenize İftar Sayacı Ekleyin (Widget)
           </button>
-          <p className="text-xs text-cream-muted/50">
+          <p className="text-xs text-cream-muted">
             Bu bir{" "}
             <a
               href="https://omersevim.com.tr"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gold/60 font-medium hover:text-gold transition-colors"
+              className="text-gold font-medium hover:text-gold-light transition-colors"
             >
               Osoft
             </a>{" "}
@@ -675,7 +689,7 @@ const Index = () => {
               role="dialog"
               aria-modal="true"
               aria-labelledby="widget-modal-title"
-              className="bg-[#0d1217] rounded-2xl gold-border p-4 sm:p-6 max-w-md w-full max-h-full overflow-y-auto shadow-xl"
+              className="bg-popover rounded-2xl border p-4 sm:p-6 max-w-md w-full max-h-full overflow-y-auto shadow-xl"
               onClick={(e) => e.stopPropagation()}
               onKeyDown={(event) => {
                 if (event.key !== "Tab") return;
@@ -702,7 +716,7 @@ const Index = () => {
               <p className="text-xs text-cream-muted mb-4">
                 Aşağıdaki kodu web sitenizin dilediğiniz bölümüne ekleyerek canlı iftar sayacını sitenizde gösterebilirsiniz:
               </p>
-              <div className="bg-black/60 p-3 rounded-xl border border-white/10 font-mono text-[11px] text-cream select-all break-all mb-4">
+              <div className="bg-muted p-3 rounded-xl border font-mono text-[11px] text-cream select-all break-all mb-4">
                 {`<iframe src="https://iftarsaati.netlify.app/widget?city=${encodeURIComponent(selectedCity.name)}" width="300" height="220" frameborder="0" style="border:none; overflow:hidden;" scrolling="no"></iframe>`}
               </div>
               <button
@@ -719,7 +733,7 @@ const Index = () => {
                     setWidgetCopied(false);
                   }
                 }}
-                className="w-full min-h-11 rounded-xl gold-border text-sm text-gold hover:bg-gold/10 transition-colors font-medium"
+                className="w-full min-h-11 rounded-xl border text-sm text-gold hover:bg-selection transition-colors font-medium"
               >
                 {widgetCopied ? "Kod kopyalandı" : "Kodu Kopyala"}
               </button>

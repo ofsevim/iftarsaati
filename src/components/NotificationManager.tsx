@@ -590,7 +590,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
         onClick={() => setShowSettings(!showSettings)}
         aria-expanded={showSettings}
         aria-controls={showSettings ? "notification-settings" : undefined}
-        className="col-start-3 row-start-1 glass-card gold-border size-11 grid place-items-center hover:text-gold touch-manipulation"
+        className="col-start-3 row-start-1 glass-card size-11 grid place-items-center hover:text-gold touch-manipulation"
         aria-label="Bildirim ayarları"
         title="Bildirim ayarları"
       >
@@ -605,7 +605,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
         <section
           id="notification-settings"
           aria-label="Bildirim ayarları"
-          className="notification-control-panel col-span-full row-start-2 min-w-0 bg-[#0d1217] rounded-2xl gold-border p-3 sm:p-4 shadow-xl z-50"
+          className="notification-control-panel col-span-full row-start-2 min-w-0 bg-popover rounded-2xl border p-3 sm:p-4 shadow-xl z-50"
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-cream">Bildirimler</span>
@@ -630,7 +630,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
               {isNativePlatform() && (
                 <button
                   onClick={() => void handleOpenNativeSettings("notifications")}
-                  className="w-full min-h-11 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-cream-muted transition-colors hover:border-[hsla(36,55%,55%,0.3)] hover:text-gold"
+                  className="w-full min-h-11 rounded-xl border bg-muted px-3 py-2 text-xs text-cream-muted transition-colors hover:border-gold/40 hover:text-gold"
                 >
                   Bildirim ayarlarını aç
                 </button>
@@ -643,21 +643,21 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                 role="switch"
                 aria-checked={pref.enabled}
                 aria-label="Vakit bildirimleri"
-                className={`w-full min-h-11 flex items-center justify-between px-3 py-2 rounded-xl text-sm mb-3 transition-colors ${
+                className={`w-full min-h-11 flex items-center justify-between px-3 py-2 rounded-xl border text-sm mb-3 transition-colors ${
                   pref.enabled
-                    ? "bg-[hsla(36,55%,55%,0.15)] text-gold border border-[hsla(36,55%,55%,0.3)]"
-                    : "bg-white/5 text-cream-muted border border-white/10"
+                    ? "bg-selection text-gold border-gold/40"
+                    : "bg-muted text-cream-muted"
                 }`}
               >
                 <span>{pref.enabled ? "Açık" : "Kapalı"}</span>
                 <div
                   className={`w-8 h-4 rounded-full relative transition-colors ${
-                    pref.enabled ? "bg-gold/40" : "bg-white/20"
+                    pref.enabled ? "bg-gold/40" : "bg-foreground/20"
                   }`}
                 >
                   <div
                     className={`absolute top-0.5 w-3 h-3 rounded-full transition-all ${
-                      pref.enabled ? "right-0.5 bg-gold" : "left-0.5 bg-white/50"
+                      pref.enabled ? "right-0.5 bg-gold" : "left-0.5 bg-muted-foreground"
                     }`}
                   />
                 </div>
@@ -678,12 +678,11 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                         id={`notification-minutes-${key}`}
                         value={pref.minutes[key]}
                         onChange={(e) => updateMinutes(key, Number(e.target.value))}
-                        className="w-full min-h-11 bg-slate-900 border border-gold/30 rounded-lg px-2 py-1.5 text-base text-cream cursor-pointer"
-                        style={{ colorScheme: "dark" }}
+                        className="w-full min-h-11 bg-card border rounded-lg px-2 py-1.5 text-base text-cream cursor-pointer"
                       >
-                        <option value={-1} className="bg-slate-900 text-cream">Bildirim kapalı</option>
+                        <option value={-1}>Bildirim kapalı</option>
                         {[0, 5, 10, 15, 30, 45, 60].map((v) => (
-                          <option key={v} value={v} className="bg-slate-900 text-cream">
+                          <option key={v} value={v}>
                             {v === 0 ? "Tam vaktinde" : `${v} dakika önce`}
                           </option>
                         ))}
@@ -691,24 +690,24 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                     </div>
                   ))}
 
-                  <div className="text-[11px] text-cream-muted/70">
+                  <div className="text-xs text-cream-muted">
                     Şu an planlanan bildirim: {scheduled}
                   </div>
 
                   {!isNativePlatform() && (
-                    <div className="text-[11px] text-cream-muted/60">
+                    <div className="text-xs text-cream-muted">
                       Tarayıcıda planlı bildirimler sekme uyursa veya kapanırsa aksayabilir.
                     </div>
                   )}
 
                   {isNativePlatform() && schedulerStatus?.exactAlarmsSupported && !schedulerStatus.exactAlarmsAllowed && (
                     <div className="space-y-2">
-                      <div className="text-[11px] text-amber-200/80">
+                      <div className="text-xs text-warning">
                         Android tam-zaman alarm izni kapalıysa bildirimler birkaç dakika gecikebilir.
                       </div>
                       <button
                         onClick={() => void handleOpenNativeSettings("exactAlarms")}
-                        className="w-full min-h-11 rounded-xl border border-amber-200/20 bg-amber-200/5 px-3 py-2 text-xs text-amber-100 transition-colors hover:border-amber-200/40"
+                        className="w-full min-h-11 rounded-xl border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning transition-colors hover:border-warning/60"
                       >
                         Tam-zaman alarm ayarını aç
                       </button>
@@ -716,7 +715,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                   )}
 
                   {testError && (
-                    <div className="text-[11px] text-red-400" role="alert">
+                    <div className="text-xs text-destructive" role="alert">
                       {testError}
                     </div>
                   )}
@@ -724,7 +723,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                   <button
                     onClick={handleTest}
                     disabled={testSent}
-                    className="w-full min-h-11 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-colors bg-white/5 border border-white/10 text-cream-muted hover:text-gold hover:border-[hsla(36,55%,55%,0.3)] disabled:opacity-50"
+                    className="w-full min-h-11 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-colors bg-muted border text-cream-muted hover:text-gold hover:border-gold/40 disabled:opacity-50"
                   >
                     <BellRing className="w-3.5 h-3.5" />
                     {testSent ? "3 saniye içinde gelecek..." : "Test bildirimi gönder"}

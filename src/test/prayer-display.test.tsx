@@ -39,6 +39,41 @@ afterEach(() => {
 });
 
 describe("prayer display", () => {
+  it("toggles the theme and restores the last choice when reopened", async () => {
+    api.fetchPrayerTimes.mockResolvedValue(times("18:00"));
+    const { unmount } = render(<Index />);
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Açık temaya geç" }));
+    });
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+    unmount();
+
+    render(<Index />);
+    expect(screen.getByRole("button", { name: "Koyu temaya geç" })).toBeInTheDocument();
+    expect(document.documentElement).toHaveAttribute("data-theme", "light");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Koyu temaya geç" }));
+    });
+    expect(document.documentElement).toHaveAttribute("data-theme", "dark");
+  });
+
+  it("labels the currently active prayer card", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 10, 20, 12, 10));
+    api.fetchPrayerTimes.mockResolvedValue(times("18:00"));
+
+    const { container } = render(<Index />);
+    await act(async () => {});
+
+    const marker = screen.getByText("Şu an");
+    const activeCard = marker.closest('[aria-current="time"]');
+    expect(activeCard).toHaveTextContent("Öğle");
+    expect(container.querySelectorAll('[aria-current="time"]')).toHaveLength(1);
+  });
+
   it("does not label the previous city's times as the newly selected city", async () => {
     api.fetchPrayerTimes.mockImplementation((city: { name: string }) =>
       city.name === "İstanbul" ? Promise.resolve(times("18:00")) : new Promise(() => {}),

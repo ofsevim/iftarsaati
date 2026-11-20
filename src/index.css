@@ -6,47 +6,48 @@
 
 @layer base {
   :root {
+    --scheme: dark;
     --background: 220 40% 8%;
     --foreground: 40 30% 92%;
 
-    --card: 220 30% 12%;
-    --card-foreground: 40 30% 92%;
+    --card: 220 32% 14%;
+    --card-foreground: var(--foreground);
 
-    --popover: 220 35% 14%;
-    --popover-foreground: 40 30% 92%;
+    --popover: 220 31% 12%;
+    --popover-foreground: var(--foreground);
 
-    --primary: 36 55% 55%;
-    --primary-foreground: 220 40% 8%;
+    --primary: var(--gold);
+    --primary-foreground: var(--background);
 
     --secondary: 220 25% 18%;
     --secondary-foreground: 40 30% 92%;
 
-    --muted: 220 20% 16%;
-    --muted-foreground: 220 15% 55%;
+    --muted: 220 24% 17%;
+    --muted-foreground: 40 20% 78%;
 
-    --accent: 36 55% 55%;
-    --accent-foreground: 220 40% 8%;
+    --accent: var(--gold);
+    --accent-foreground: var(--background);
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 4 85% 75%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 36 30% 30%;
-    --input: 220 25% 20%;
-    --ring: 36 55% 55%;
+    --border: 219 18% 27%;
+    --input: var(--border);
+    --ring: var(--gold);
 
     --radius: 0.75rem;
 
     --gold: 36 55% 55%;
     --gold-light: 36 60% 70%;
-    --gold-dark: 36 50% 40%;
-    --night: 220 40% 8%;
-    --night-light: 220 30% 14%;
-    --cream: 40 30% 92%;
-    --cream-muted: 40 20% 80%;
-
-    --glass-bg: 220 30% 15%;
-    --glass-border: 36 40% 50%;
-    --glass-shadow: 220 40% 4%;
+    --night: var(--background);
+    --night-light: var(--muted);
+    --cream: var(--foreground);
+    --cream-muted: var(--muted-foreground);
+    --selection: 36 29% 17%;
+    --occasion: 273 34% 18%;
+    --occasion-foreground: 276 67% 86%;
+    --warning: 43 87% 76%;
+    --art-opacity: 0.4;
 
     --page-inline: 1rem;
     --page-left: calc(var(--page-inline) + env(safe-area-inset-left, 0px));
@@ -63,6 +64,27 @@
 
     font-family: 'Inter', sans-serif;
   }
+
+  :root[data-theme="light"] {
+    --scheme: light;
+    --background: 40 43% 94.5%;
+    --foreground: 221 38% 14.5%;
+    --card: 42 55% 98%;
+    --popover: 40 57% 97%;
+    --secondary: 39 29% 90%;
+    --secondary-foreground: var(--foreground);
+    --muted: 39 29% 90%;
+    --muted-foreground: 223 13% 34%;
+    --border: 36 24% 77%;
+    --gold: 34 59% 30%;
+    --gold-light: 34 65% 25%;
+    --selection: 38 55% 88%;
+    --occasion: 275 28% 92%;
+    --occasion-foreground: 272 42% 29%;
+    --warning: 31 73% 28%;
+    --destructive: 1 62% 39%;
+    --art-opacity: 0.11;
+  }
 }
 
 @layer base {
@@ -72,10 +94,11 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    color-scheme: var(--scheme);
   }
 
   :where(button, a, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid hsl(var(--gold-light));
+    outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
   }
 
@@ -96,35 +119,27 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--gold) / 0.2);
+    background: hsl(var(--foreground) / 0.22);
     border-radius: 10px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--gold) / 0.4);
+    background: hsl(var(--foreground) / 0.4);
   }
 }
 
 @layer components {
   .glass-card {
     @apply rounded-2xl border;
-    background: rgba(15, 20, 25, 0.6);
-    border-color: hsla(36, 55%, 55%, 0.22);
-    box-shadow: 0 8px 32px rgba(20, 20, 20, 0.4);
+    background: hsl(var(--card) / 0.93);
   }
 
-  .glass-card-backdrop {
-    @apply rounded-2xl border backdrop-blur-xl;
-    background: hsla(220, 30%, 15%, 0.65);
-    border-color: hsla(36, 40%, 50%, 0.25);
-    box-shadow: 0 8px 32px hsla(220, 40%, 4%, 0.45);
+  .page-art {
+    opacity: var(--art-opacity);
   }
 
-  .gold-border {
-    border: 1px solid hsl(var(--gold) / 0.3);
-  }
-
-  .gold-glow {
-    box-shadow: 0 0 20px hsl(var(--gold) / 0.15), 0 0 60px hsl(var(--gold) / 0.05);
+  :root[data-theme="light"] .page-art {
+    filter: grayscale(1) invert(1) sepia(0.24);
+    mix-blend-mode: multiply;
   }
 
   .text-gold {
@@ -148,7 +163,10 @@
   }
 
   .countdown-digit {
-    @apply glass-card-backdrop gold-border gold-glow px-2.5 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 text-3xl sm:text-4xl md:text-6xl font-bold tabular-nums min-w-[3.25rem] sm:min-w-[4rem];
+    @apply glass-card px-2.5 py-2 sm:px-4 sm:py-3 md:px-6 md:py-4 text-3xl sm:text-4xl md:text-6xl font-bold tabular-nums min-w-[3.25rem] sm:min-w-[4rem];
+    background: hsl(var(--card));
+    border-color: hsl(var(--gold) / 0.55);
+    box-shadow: 0 5px 14px hsl(220 37% 7% / 0.12);
     color: hsl(var(--gold-light));
     font-family: 'Inter', sans-serif;
     font-weight: 700;
@@ -156,36 +174,32 @@
   }
 
   .prayer-card {
-    @apply glass-card-backdrop gold-border p-2.5 sm:p-4 text-center transition-all duration-300;
-  }
-
-  .prayer-card:hover {
-    @apply gold-glow;
-    border-color: hsl(var(--gold) / 0.5);
+    @apply glass-card p-2.5 sm:p-4 text-center;
   }
 
   .prayer-card.active {
-    @apply gold-glow;
-    border-color: hsl(var(--gold) / 0.6);
-    background: hsla(36, 55%, 55%, 0.1);
+    border-color: hsl(var(--gold) / 0.72);
+    background: hsl(var(--selection));
   }
 
   .quick-btn {
-    @apply glass-card gold-border min-h-11 shrink-0 px-3.5 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer touch-manipulation select-none;
+    @apply glass-card min-h-11 shrink-0 px-3.5 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer touch-manipulation select-none;
     color: hsl(var(--cream-muted));
   }
 
   .quick-btn:hover {
-    color: hsl(var(--gold));
-    border-color: hsl(var(--gold) / 0.5);
-    background: hsla(36, 55%, 55%, 0.1);
+    color: hsl(var(--foreground));
+    background: hsl(var(--muted));
   }
 
   .quick-btn.selected {
     color: hsl(var(--gold));
     border-color: hsl(var(--gold) / 0.6);
-    background: hsla(36, 55%, 55%, 0.16);
-    @apply gold-glow;
+    background: hsl(var(--selection));
+  }
+
+  .calendar-sticky {
+    background-color: inherit;
   }
 }
 
@@ -254,6 +268,7 @@
 /* Widget mode: transparent background for iframe embedding */
 body.widget-mode {
   background: transparent !important;
+  color-scheme: normal;
 }
 
 @media print {
@@ -264,5 +279,6 @@ body.widget-mode {
   body {
     background: #ffffff !important;
     color: #111111 !important;
+    color-scheme: light;
   }
 }

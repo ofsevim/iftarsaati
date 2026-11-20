@@ -100,14 +100,14 @@ const DailyContentCard = ({ dateKey }: DailyContentCardProps) => {
   const tabStyle = (t: Tab) =>
     `flex items-center gap-1.5 min-h-11 min-w-0 px-2 py-2 border rounded-xl text-sm font-medium transition-colors flex-1 justify-center touch-manipulation ${
       tab === t
-        ? "bg-gold/20 text-gold border-gold/40"
-        : "border-transparent text-cream-muted hover:text-gold"
+        ? "bg-selection text-gold border-gold/40"
+        : "border-transparent text-cream-muted hover:bg-muted hover:text-cream"
     }`;
 
   return (
     <div className="w-full max-w-2xl mx-auto mb-6 md:mb-8">
       <div
-        className="glass-card gold-border p-4 md:p-5"
+        className="glass-card p-4 md:p-5"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => { touchStart.current = null; }}

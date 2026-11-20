@@ -65,6 +65,12 @@ export default {
         },
         gold: "hsl(var(--gold))",
         "gold-light": "hsl(var(--gold-light))",
+        selection: "hsl(var(--selection))",
+        occasion: {
+          DEFAULT: "hsl(var(--occasion))",
+          foreground: "hsl(var(--occasion-foreground))",
+        },
+        warning: "hsl(var(--warning))",
         night: "hsl(var(--night))",
         cream: "hsl(var(--cream))",
       },

@@ -92,7 +92,7 @@ const InstallPrompt = () => {
   if (!showPrompt) return null;
 
   return (
-    <section aria-labelledby="install-title" className="w-full max-w-2xl mb-6 glass-card gold-border p-4 print:hidden">
+    <section aria-labelledby="install-title" className="w-full max-w-2xl mb-6 glass-card p-4 print:hidden">
       <div className="flex items-start gap-3 mb-3">
         <Download className="size-5 shrink-0 mt-0.5 text-gold" aria-hidden="true" />
         <div className="min-w-0 flex-1">
@@ -124,7 +124,7 @@ const InstallPrompt = () => {
           </div>
           <button
             onClick={handleDismiss}
-            className="w-full min-h-11 rounded-xl gold-border px-4 text-sm font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation"
+            className="w-full min-h-11 rounded-xl border px-4 text-sm font-medium text-gold hover:bg-selection transition-colors touch-manipulation"
           >
             Anladım
           </button>
@@ -132,7 +132,7 @@ const InstallPrompt = () => {
       ) : (
         <button
           onClick={handleInstall}
-          className="w-full min-h-11 rounded-xl gold-border px-4 text-sm font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation"
+          className="w-full min-h-11 rounded-xl border px-4 text-sm font-medium text-gold hover:bg-selection transition-colors touch-manipulation"
         >
           Yükle
         </button>

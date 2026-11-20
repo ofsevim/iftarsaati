@@ -5,7 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <!-- Samsung tarayıcısı için optimizasyon -->
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#c9a961" />
+    <meta name="theme-color" content="#0c121d" />
+    <script>
+      try {
+        if (localStorage.getItem("vakt-theme") === "light") {
+          document.documentElement.setAttribute("data-theme", "light");
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", "#f7f3eb");
+        }
+      } catch (_) {
+        // The default theme is available when storage is blocked.
+      }
+    </script>
     <meta name="msapplication-TileColor" content="#c9a961" />
     <meta name="msapplication-TileImage" content="/icon-192.png" />
     <meta name="msapplication-config" content="none" />

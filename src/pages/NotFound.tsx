@@ -11,7 +11,7 @@ const NotFound = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="glass-card gold-border p-8 text-center max-w-md w-full shadow-2xl">
+      <div className="glass-card p-8 text-center max-w-md w-full shadow-2xl">
         <div className="flex justify-center mb-4">
           <Moon className="w-12 h-12 text-gold animate-pulse-gold" />
         </div>
@@ -22,7 +22,7 @@ const NotFound = () => {
         </p>
         <Link
           to="/"
-          className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl glass-card gold-border text-sm font-medium text-gold hover:bg-gold/10 transition-colors"
+          className="inline-flex items-center justify-center px-6 py-2.5 rounded-xl glass-card text-sm font-medium text-gold hover:bg-gold/10 transition-colors"
         >
           Ana Sayfaya Dön
         </Link>
