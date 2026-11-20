@@ -90,10 +90,10 @@ const Imsakiye = ({ city, period: propPeriod, loading: propLoading, todayKey }: 
   };
 
   return (
-    <div id="imsakiye" className="w-full max-w-4xl mt-12 mb-8 print:m-0 print:max-w-full">
+    <section id="imsakiye" aria-labelledby="imsakiye-title" className="w-full max-w-4xl mt-3 md:mt-8 mb-8 print:m-0 print:max-w-full">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="text-center sm:text-left">
-          <h3 className="font-display text-xl md:text-2xl text-gold print:text-black">
+          <h3 id="imsakiye-title" className="font-display text-xl md:text-2xl text-gold print:text-black">
             {city.name} - Ramazan İmsakiyesi
           </h3>
           {period && (
@@ -107,7 +107,7 @@ const Imsakiye = ({ city, period: propPeriod, loading: propLoading, todayKey }: 
           <div className="flex items-center justify-center sm:justify-end gap-2 print:hidden">
             <button
               onClick={handlePrint}
-              className="glass-card gold-border px-3 py-2 flex items-center gap-1.5 text-xs text-cream-muted hover:text-gold transition-all touch-manipulation active:scale-95"
+              className="glass-card gold-border min-h-11 px-3 py-2 flex items-center gap-1.5 text-sm text-cream-muted hover:text-gold transition-colors touch-manipulation"
               title="İmsakiyeyi Yazdır"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -115,7 +115,7 @@ const Imsakiye = ({ city, period: propPeriod, loading: propLoading, todayKey }: 
             </button>
             <button
               onClick={handleShare}
-              className="glass-card gold-border px-3 py-2 flex items-center gap-1.5 text-xs text-cream-muted hover:text-gold transition-all touch-manipulation active:scale-95"
+              className="glass-card gold-border min-h-11 px-3 py-2 flex items-center gap-1.5 text-sm text-cream-muted hover:text-gold transition-colors touch-manipulation"
               title="WhatsApp ile Paylaş"
             >
               <Share2 className="w-3.5 h-3.5" />
@@ -135,21 +135,26 @@ const Imsakiye = ({ city, period: propPeriod, loading: propLoading, todayKey }: 
         </div>
       ) : (
         <div className="glass-card gold-border overflow-hidden print:overflow-visible print:bg-white print:border-gray-300 print:shadow-none">
-          <div className="sm:hidden print:hidden text-right px-3 py-1 text-[10px] text-cream-muted/50 border-b border-white/5">
-            ↔ Sağa/sola kaydırılabilir
+          <div className="sm:hidden print:hidden px-3 py-2 text-xs text-cream-muted border-b border-white/10">
+            Tüm vakitler için tabloyu yatay kaydırın.
           </div>
-          <div className="overflow-x-auto print:overflow-visible">
-            <table className="w-full min-w-[500px] print:min-w-0 text-xs md:text-sm border-collapse">
+          <div className="calendar-scroll overflow-x-auto print:overflow-visible" tabIndex={0} role="region" aria-label="İmsakiye tablosu">
+            <table className="table-fixed w-full min-w-[500px] print:min-w-0 text-xs md:text-sm border-collapse">
+              <colgroup>
+                <col className="w-10" />
+                <col className="w-[6.75rem] md:w-36" />
+                <col span={6} />
+              </colgroup>
               <thead>
                 <tr className="border-b print:border-gray-300" style={{ borderColor: "hsl(var(--gold) / 0.2)" }}>
-                  <th className="sticky print:static left-0 print:left-auto z-20 print:z-auto bg-[#0d1319] print:bg-gray-100 print:text-black px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium w-10 min-w-[2.5rem]">
+                  <th scope="col" className="sticky print:static left-0 print:left-auto z-20 print:z-auto bg-[#0d1319] print:bg-gray-100 print:text-black px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium">
                     Gün
                   </th>
-                  <th className="sticky print:static left-10 print:left-auto z-20 print:z-auto bg-[#0d1319] print:bg-gray-100 print:text-black print:shadow-none px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium border-r border-gold/20 print:border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
+                  <th scope="col" className="sticky print:static left-10 print:left-auto z-20 print:z-auto bg-[#0d1319] print:bg-gray-100 print:text-black print:shadow-none px-2 md:px-3 py-2 md:py-3 text-left text-gold-light font-display font-medium border-r border-gold/20 print:border-gray-300 shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
                     Tarih
                   </th>
                   {prayerKeys.map((key) => (
-                    <th key={key} className="px-1 sm:px-2 md:px-3 py-2 md:py-3 text-center text-gold-light print:bg-gray-100 print:text-black font-display font-medium">
+                    <th key={key} scope="col" className="px-1 sm:px-2 md:px-3 py-2 md:py-3 text-center text-gold-light print:bg-gray-100 print:text-black font-display font-medium">
                       {PRAYER_LABELS[key]}
                     </th>
                   ))}
@@ -199,13 +204,13 @@ const Imsakiye = ({ city, period: propPeriod, loading: propLoading, todayKey }: 
                     style={{ borderColor: "hsl(var(--gold) / 0.1)" }}
                   >
                     {isBayram ? (
-                      <td colSpan={8} className="px-3 py-3 text-center">
-                        <div className="flex flex-col md:flex-row items-center justify-center gap-3 md:gap-6">
-                          <div className="flex items-center gap-2.5 text-gold-light print:text-black font-display font-bold text-base md:text-xl transition-transform duration-300 hover:scale-105">
-                            <Candy className="h-5 w-5 md:h-6 md:w-6" />
+                      <td colSpan={8} className="py-3 text-center">
+                        <div className="sticky left-0 max-w-[calc(100vw-var(--page-left)-var(--page-right)-2px)] sm:static sm:max-w-none print:static print:max-w-none px-3 flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6">
+                          <div className="flex items-center gap-2.5 text-gold-light print:text-black font-display font-bold text-base md:text-xl">
+                            <Candy className="size-5 md:size-6 shrink-0" aria-hidden="true" />
                             <span>{day.dateLabel} {getDayName(day.dateKey)} - Ramazan Bayramı</span>
                           </div>
-                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gold/15 print:bg-transparent border border-gold/40 print:border-gray-400 rounded-full animate-pulse-gold shadow-[0_0_15px_rgba(212,175,55,0.1)] print:shadow-none">
+                          <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-gold/10 print:bg-transparent border border-gold/40 print:border-gray-400 rounded-full">
                             <span className="text-gold print:text-black font-bold text-sm md:text-base">
                               Bayram Namazı: {calculateBayramTime(day.times.Sunrise)}
                             </span>
@@ -217,19 +222,17 @@ const Imsakiye = ({ city, period: propPeriod, loading: propLoading, todayKey }: 
                         <td className={`sticky print:static left-0 print:left-auto z-10 print:z-auto px-2 md:px-3 py-1.5 md:py-2.5 font-semibold ${stickyBg} ${labelColor} w-10 min-w-[2.5rem]`}>
                           {String(i + 1)}
                         </td>
-                        <td className={`sticky print:static left-10 print:left-auto z-10 print:z-auto px-2 md:px-3 py-1.5 md:py-2.5 whitespace-nowrap border-r border-gold/20 print:border-gray-300 print:shadow-none shadow-[2px_0_5px_rgba(0,0,0,0.3)] ${stickyBg} ${labelColor}`}>
-                          <div className="flex flex-col leading-none">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              <span>{day.dateLabel}</span>
-                              {isKadirGecesi && (
-                                <span className="inline-block px-1.5 py-0.5 text-[9px] font-semibold rounded bg-[hsla(280,60%,55%,0.25)] text-purple-200 border border-purple-400/30 print:bg-transparent print:text-black print:border-gray-400">
-                                  Kadir Gecesi
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-[10px] md:text-[11px] opacity-60 font-normal print:opacity-100">{getDayName(day.dateKey)}</span>
+                        <th scope="row" className={`sticky print:static left-10 print:left-auto z-10 print:z-auto px-2 md:px-3 py-2 md:py-2.5 text-left font-medium border-r border-gold/20 print:border-gray-300 print:shadow-none shadow-[2px_0_5px_rgba(0,0,0,0.3)] ${stickyBg} ${labelColor}`}>
+                          <div className="flex flex-col items-start leading-tight">
+                            <time dateTime={day.dateKey}>{day.dateLabel}</time>
+                            <span className="text-[11px] text-cream-muted font-normal print:text-gray-700">{getDayName(day.dateKey)}</span>
+                            {isKadirGecesi && (
+                              <span className="mt-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-[hsla(280,60%,55%,0.25)] text-purple-200 border border-purple-400/30 print:bg-transparent print:text-black print:border-gray-400">
+                                Kadir Gecesi
+                              </span>
+                            )}
                           </div>
-                        </td>
+                        </th>
                         {prayerKeys.map((key) => (
                           <td
                             key={key}
@@ -248,7 +251,7 @@ const Imsakiye = ({ city, period: propPeriod, loading: propLoading, todayKey }: 
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 };
 

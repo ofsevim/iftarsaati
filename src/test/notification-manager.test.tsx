@@ -101,15 +101,19 @@ describe("native notifications", () => {
   it("closes settings popover on Escape or outside click", async () => {
     render(<NotificationManager city={TURKEY_CITIES[0]} prayerTimes={times} />);
     await act(async () => {});
-    fireEvent.click(screen.getByRole("button", { name: "Bildirim ayarları" }));
-    expect(screen.getByRole("dialog", { name: "Bildirim ayarları" })).toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: "Bildirim ayarları" });
+    fireEvent.click(trigger);
+    expect(screen.getByRole("region", { name: "Bildirim ayarları" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "İmsak vaktinden önce (dk)" })).toHaveValue("30");
+    screen.getByRole("button", { name: "Bildirim ayarlarını kapat" }).focus();
 
     fireEvent.keyDown(document, { key: "Escape" });
-    expect(screen.queryByRole("dialog", { name: "Bildirim ayarları" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Bildirim ayarları" })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
 
-    fireEvent.click(screen.getByRole("button", { name: "Bildirim ayarları" }));
-    expect(screen.getByRole("dialog", { name: "Bildirim ayarları" })).toBeInTheDocument();
+    fireEvent.click(trigger);
+    expect(screen.getByRole("region", { name: "Bildirim ayarları" })).toBeInTheDocument();
     fireEvent.mouseDown(document.body);
-    expect(screen.queryByRole("dialog", { name: "Bildirim ayarları" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Bildirim ayarları" })).not.toBeInTheDocument();
   });
 });

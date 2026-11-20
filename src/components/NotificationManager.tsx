@@ -343,6 +343,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
   );
   const [schedulerStatus, setSchedulerStatus] = useState<ReminderSchedulerStatus | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const lastScheduledDateRef = useRef<string>("");
   const lastRenewAtRef = useRef<number>(0);
   const testSentTimerRef = useRef<number | null>(null);
@@ -369,6 +370,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setShowSettings(false);
+        settingsButtonRef.current?.focus();
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -574,11 +576,21 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
   }
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div
+      className="notification-control"
+      ref={containerRef}
+      onBlur={(event) => {
+        if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+          setShowSettings(false);
+        }
+      }}
+    >
       <button
+        ref={settingsButtonRef}
         onClick={() => setShowSettings(!showSettings)}
         aria-expanded={showSettings}
-        className="glass-card gold-border p-2.5 min-h-[42px] min-w-[42px] flex items-center justify-center gap-1.5 text-xs transition-all hover:text-gold touch-manipulation active:scale-95"
+        aria-controls={showSettings ? "notification-settings" : undefined}
+        className="col-start-3 row-start-1 glass-card gold-border size-11 grid place-items-center hover:text-gold touch-manipulation"
         aria-label="Bildirim ayarları"
         title="Bildirim ayarları"
       >
@@ -590,16 +602,19 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
       </button>
 
       {showSettings && (
-        <div
-          role="dialog"
+        <section
+          id="notification-settings"
           aria-label="Bildirim ayarları"
-          className="absolute top-full mt-2 right-0 w-72 max-w-[calc(100vw-2rem)] bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border p-4 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200"
+          className="notification-control-panel col-span-full row-start-2 min-w-0 bg-[#0d1217] rounded-2xl gold-border p-3 sm:p-4 shadow-xl z-50"
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-cream">Bildirimler</span>
             <button
-              onClick={() => setShowSettings(false)}
-              className="p-1.5 text-cream-muted hover:text-gold transition-colors touch-manipulation flex items-center justify-center min-w-[32px] min-h-[32px]"
+              onClick={() => {
+                setShowSettings(false);
+                settingsButtonRef.current?.focus();
+              }}
+              className="size-11 shrink-0 rounded-xl text-cream-muted hover:text-gold transition-colors touch-manipulation grid place-items-center"
               aria-label="Bildirim ayarlarını kapat"
             >
               <X className="w-4 h-4" />
@@ -615,7 +630,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
               {isNativePlatform() && (
                 <button
                   onClick={() => void handleOpenNativeSettings("notifications")}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-cream-muted transition-colors hover:border-[hsla(36,55%,55%,0.3)] hover:text-gold"
+                  className="w-full min-h-11 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-cream-muted transition-colors hover:border-[hsla(36,55%,55%,0.3)] hover:text-gold"
                 >
                   Bildirim ayarlarını aç
                 </button>
@@ -625,7 +640,10 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
             <>
               <button
                 onClick={handleToggle}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm mb-3 transition-colors ${
+                role="switch"
+                aria-checked={pref.enabled}
+                aria-label="Vakit bildirimleri"
+                className={`w-full min-h-11 flex items-center justify-between px-3 py-2 rounded-xl text-sm mb-3 transition-colors ${
                   pref.enabled
                     ? "bg-[hsla(36,55%,55%,0.15)] text-gold border border-[hsla(36,55%,55%,0.3)]"
                     : "bg-white/5 text-cream-muted border border-white/10"
@@ -649,7 +667,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                 <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                   {(Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[]).map((key) => (
                     <div key={key}>
-                      <label className="text-xs text-cream-muted block mb-1">
+                      <label htmlFor={`notification-minutes-${key}`} className="text-xs text-cream-muted block mb-1">
                         {key === "Maghrib" && isRamadan
                           ? "İftardan önce (dk)"
                           : key === "Fajr" && isRamadan
@@ -657,9 +675,10 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                             : `${PRAYER_LABELS[key]} vaktinden önce (dk)`}
                       </label>
                       <select
+                        id={`notification-minutes-${key}`}
                         value={pref.minutes[key]}
                         onChange={(e) => updateMinutes(key, Number(e.target.value))}
-                        className="w-full bg-slate-900 border border-gold/30 rounded-lg px-2 py-1.5 text-sm text-cream outline-none cursor-pointer"
+                        className="w-full min-h-11 bg-slate-900 border border-gold/30 rounded-lg px-2 py-1.5 text-base text-cream cursor-pointer"
                         style={{ colorScheme: "dark" }}
                       >
                         <option value={-1} className="bg-slate-900 text-cream">Bildirim kapalı</option>
@@ -689,7 +708,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                       </div>
                       <button
                         onClick={() => void handleOpenNativeSettings("exactAlarms")}
-                        className="w-full rounded-xl border border-amber-200/20 bg-amber-200/5 px-3 py-2 text-xs text-amber-100 transition-colors hover:border-amber-200/40"
+                        className="w-full min-h-11 rounded-xl border border-amber-200/20 bg-amber-200/5 px-3 py-2 text-xs text-amber-100 transition-colors hover:border-amber-200/40"
                       >
                         Tam-zaman alarm ayarını aç
                       </button>
@@ -705,7 +724,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
                   <button
                     onClick={handleTest}
                     disabled={testSent}
-                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-colors bg-white/5 border border-white/10 text-cream-muted hover:text-gold hover:border-[hsla(36,55%,55%,0.3)] disabled:opacity-50"
+                    className="w-full min-h-11 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs transition-colors bg-white/5 border border-white/10 text-cream-muted hover:text-gold hover:border-[hsla(36,55%,55%,0.3)] disabled:opacity-50"
                   >
                     <BellRing className="w-3.5 h-3.5" />
                     {testSent ? "3 saniye içinde gelecek..." : "Test bildirimi gönder"}
@@ -714,7 +733,7 @@ const NotificationManager = ({ prayerTimes, city, isRamadan }: NotificationManag
               )}
             </>
           )}
-        </div>
+        </section>
       )}
     </div>
   );

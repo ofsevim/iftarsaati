@@ -40,7 +40,7 @@ const DailyContentCard = ({ dateKey }: DailyContentCardProps) => {
   const [tab, setTab] = useState<Tab>("dua");
   const [ayahState, setAyahState] = useState<{ key: string; data: AyahData } | null>(null);
   const [ayahLoading, setAyahLoading] = useState(false);
-  const touchStartX = useRef<number | null>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (dateKey) return;
@@ -81,68 +81,87 @@ const DailyContentCard = ({ dateKey }: DailyContentCardProps) => {
   }, [tab, ayah, currentDate, effectiveDateKey]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+    const touch = e.touches[0];
+    touchStart.current = e.touches.length === 1 ? { x: touch.clientX, y: touch.clientY } : null;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    const threshold = 50;
-    if (Math.abs(diff) > threshold) {
-      const currentIndex = TABS.indexOf(tab);
-      if (diff < 0 && currentIndex < TABS.length - 1) {
-        setTab(TABS[currentIndex + 1]);
-      } else if (diff > 0 && currentIndex > 0) {
-        setTab(TABS[currentIndex - 1]);
-      }
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start) return;
+    const touch = e.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
+      setTab(deltaX < 0 ? "ayet" : "dua");
     }
-    touchStartX.current = null;
   };
 
   const tabStyle = (t: Tab) =>
-    `flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all flex-1 justify-center touch-manipulation active:scale-[0.98] ${
+    `flex items-center gap-1.5 min-h-11 min-w-0 px-2 py-2 border rounded-xl text-sm font-medium transition-colors flex-1 justify-center touch-manipulation ${
       tab === t
-        ? "bg-[hsl(36,55%,55%,0.15)] text-gold border border-[hsl(36,55%,55%,0.3)] shadow-[0_0_10px_rgba(212,175,55,0.1)]"
-        : "text-cream-muted hover:text-gold"
+        ? "bg-gold/20 text-gold border-gold/40"
+        : "border-transparent text-cream-muted hover:text-gold"
     }`;
 
   return (
-    <div className="w-full max-w-2xl mx-auto mb-8">
+    <div className="w-full max-w-2xl mx-auto mb-6 md:mb-8">
       <div
         className="glass-card gold-border p-4 md:p-5"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => { touchStart.current = null; }}
       >
         {/* Tab buttons */}
-        <div role="tablist" aria-label="Günün içeriği" className="flex gap-2 mb-4">
-          <button
-            type="button"
-            role="tab"
-            id="daily-tab-dua"
-            aria-selected={tab === "dua"}
-            aria-controls="daily-tabpanel"
-            onClick={() => setTab("dua")}
-            className={tabStyle("dua")}
-          >
-            <BookOpen className="w-4 h-4" />
-            {TAB_LABELS.dua}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            id="daily-tab-ayet"
-            aria-selected={tab === "ayet"}
-            aria-controls="daily-tabpanel"
-            onClick={() => setTab("ayet")}
-            className={tabStyle("ayet")}
-          >
-            <Scroll className="w-4 h-4" />
-            {TAB_LABELS.ayet}
-          </button>
+        <div
+          role="tablist"
+          aria-label="Günün içeriği"
+          className="flex gap-2 mb-4"
+          onKeyDown={(event) => {
+            let nextTab: Tab;
+            switch (event.key) {
+              case "ArrowLeft":
+              case "ArrowRight":
+                nextTab = tab === "dua" ? "ayet" : "dua";
+                break;
+              case "Home":
+                nextTab = "dua";
+                break;
+              case "End":
+                nextTab = "ayet";
+                break;
+              default:
+                return;
+            }
+            event.preventDefault();
+            event.currentTarget.querySelector<HTMLButtonElement>(`#daily-tab-${nextTab}`)?.focus();
+            setTab(nextTab);
+          }}
+        >
+          {TABS.map((item) => {
+            const Icon = item === "dua" ? BookOpen : Scroll;
+            const isSelected = tab === item;
+            return (
+              <button
+                key={item}
+                type="button"
+                role="tab"
+                id={`daily-tab-${item}`}
+                aria-selected={isSelected}
+                aria-controls="daily-tabpanel"
+                tabIndex={isSelected ? 0 : -1}
+                onClick={() => setTab(item)}
+                className={tabStyle(item)}
+              >
+                <Icon className="size-4 shrink-0" aria-hidden="true" />
+                {TAB_LABELS[item]}
+              </button>
+            );
+          })}
         </div>
 
         {/* Content */}
-        <div role="tabpanel" id="daily-tabpanel" aria-labelledby={`daily-tab-${tab}`}>
+        <div role="tabpanel" id="daily-tabpanel" aria-labelledby={`daily-tab-${tab}`} tabIndex={0}>
           {tab === "ayet" ? (
             ayahLoading ? (
               <div className="text-sm text-cream-muted animate-pulse">Ayet yükleniyor...</div>
@@ -150,6 +169,7 @@ const DailyContentCard = ({ dateKey }: DailyContentCardProps) => {
               <div className="space-y-3">
                 <p
                   dir="rtl"
+                  lang="ar"
                   className="text-right text-lg md:text-xl leading-loose text-cream"
                   style={{ fontFamily: "serif" }}
                 >
@@ -173,20 +193,6 @@ const DailyContentCard = ({ dateKey }: DailyContentCardProps) => {
           ) : null}
         </div>
 
-        {/* Dot indicators */}
-        <div className="flex items-center justify-center gap-1.5 mt-3">
-          {TABS.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              aria-label={TAB_LABELS[t]}
-              className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                tab === t ? "bg-gold w-3" : "bg-cream-muted/30 w-1.5 hover:bg-cream-muted/60"
-              }`}
-            />
-          ))}
-        </div>
       </div>
     </div>
   );

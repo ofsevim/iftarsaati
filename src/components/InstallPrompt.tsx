@@ -48,10 +48,7 @@ const InstallPrompt = () => {
   const [isIOSDevice, setIsIOSDevice] = useState(false);
 
   useEffect(() => {
-    if (isStandalone() || window.location.pathname.startsWith("/widget")) {
-      setShowPrompt(false);
-      return;
-    }
+    if (isStandalone()) return;
 
     const dismissed = safeStorageGet("pwa-install-dismissed");
     if (dismissed) return;
@@ -78,14 +75,12 @@ const InstallPrompt = () => {
 
     try {
       await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === "accepted") {
-        setShowPrompt(false);
-      }
+      await deferredPrompt.userChoice;
     } catch {
       // Kullanıcı iptal veya tarayıcı hatası
     } finally {
       setDeferredPrompt(null);
+      setShowPrompt(false);
     }
   };
 
@@ -97,58 +92,52 @@ const InstallPrompt = () => {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 animate-slide-up print:hidden">
-      <div className="glass-card gold-border p-4 shadow-2xl relative">
+    <section aria-labelledby="install-title" className="w-full max-w-2xl mb-6 glass-card gold-border p-4 print:hidden">
+      <div className="flex items-start gap-3 mb-3">
+        <Download className="size-5 shrink-0 mt-0.5 text-gold" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <h3 id="install-title" className="font-display text-gold font-semibold mb-1">
+            Uygulamayı Yükle
+          </h3>
+          <p className="text-sm text-cream-muted">
+            {isIOSDevice
+              ? "Vakt-i Şerif'i ana ekranınıza ekleyerek tek dokunuşla erişin."
+              : "Vakt-i Şerif'e ana ekranınızdan erişin."}
+          </p>
+        </div>
         <button
           onClick={handleDismiss}
-          className="absolute top-2 right-2 p-1.5 text-cream-muted hover:text-gold transition-colors touch-manipulation flex items-center justify-center min-w-[32px] min-h-[32px]"
-          aria-label="Kapat"
+          className="size-11 shrink-0 rounded-xl text-cream-muted hover:text-gold transition-colors touch-manipulation grid place-items-center"
+          aria-label="Yükleme önerisini kapat"
         >
           <X className="w-4 h-4" />
         </button>
-
-        <div className="flex items-start gap-3 mb-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gold to-gold-dark flex items-center justify-center flex-shrink-0">
-            <span className="text-2xl">🌙</span>
-          </div>
-          <div>
-            <h3 className="font-display text-gold font-semibold mb-1">
-              Uygulamayı Yükle
-            </h3>
-            <p className="text-sm text-cream-muted">
-              {isIOSDevice
-                ? "Vakt-i Şerif'i ana ekranınıza ekleyerek tek tıkla erişin"
-                : "Vakt-i Şerif'i telefonunuza yükleyerek hızlı erişim sağlayın"}
-            </p>
-          </div>
-        </div>
-
-        {isIOSDevice ? (
-          <div className="space-y-2">
-            <div className="bg-night-light/70 p-2.5 rounded-xl border gold-border text-xs text-cream-muted flex items-center gap-2">
-              <Share className="w-4 h-4 text-gold shrink-0" />
-              <span>
-                Safari'de <strong className="text-gold">Paylaş</strong> simgesine dokunun ve <strong className="text-gold">'Ana Ekrana Ekle'</strong>yi seçin.
-              </span>
-            </div>
-            <button
-              onClick={handleDismiss}
-              className="w-full glass-card gold-border px-4 py-2.5 text-xs font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation active:scale-95"
-            >
-              Anladım
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={handleInstall}
-            className="w-full glass-card gold-border px-4 py-2.5 flex items-center justify-center gap-2 text-sm font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation active:scale-95"
-          >
-            <Download className="w-4 h-4" />
-            Yükle
-          </button>
-        )}
       </div>
-    </div>
+
+      {isIOSDevice ? (
+        <div className="space-y-2">
+          <div className="bg-night-light p-2.5 rounded-xl text-sm text-cream-muted flex items-center gap-2">
+            <Share className="w-4 h-4 text-gold shrink-0" aria-hidden="true" />
+            <span>
+              Safari'de <strong className="text-gold">Paylaş</strong> simgesine dokunun ve <strong className="text-gold">'Ana Ekrana Ekle'</strong>yi seçin.
+            </span>
+          </div>
+          <button
+            onClick={handleDismiss}
+            className="w-full min-h-11 rounded-xl gold-border px-4 text-sm font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation"
+          >
+            Anladım
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={handleInstall}
+          className="w-full min-h-11 rounded-xl gold-border px-4 text-sm font-medium text-gold hover:bg-gold/10 transition-colors touch-manipulation"
+        >
+          Yükle
+        </button>
+      )}
+    </section>
   );
 };
 

@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
-import { MapPin, Search, ChevronDown, Moon, Star, Volume2, VolumeX } from "lucide-react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { MapPin, Search, ChevronDown, Moon, Star, Volume2, VolumeX, X } from "lucide-react";
 import Imsakiye from "@/components/Imsakiye";
 import DailyContentCard from "@/components/DailyContentCard";
+import InstallPrompt from "@/components/InstallPrompt";
 import NotificationManager from "@/components/NotificationManager";
 import bgPattern from "@/assets/bg-pattern.jpg";
 import {
@@ -83,13 +84,20 @@ const Index = () => {
   });
   const [widgetModalOpen, setWidgetModalOpen] = useState(false);
   const [widgetCopied, setWidgetCopied] = useState(false);
+  const widgetTriggerRef = useRef<HTMLButtonElement>(null);
+  const widgetCloseRef = useRef<HTMLButtonElement>(null);
+  const widgetCopyRef = useRef<HTMLButtonElement>(null);
   const [countdown, setCountdown] = useState<CountdownState>(INITIAL_COUNTDOWN);
   const [activePrayer, setActivePrayer] = useState<keyof PrayerTimes | null>(null);
   const [locating, setLocating] = useState(false);
   const [locationMessage, setLocationMessage] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [pickerFavoriteOrder, setPickerFavoriteOrder] = useState<string[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const cityButtonRef = useRef<HTMLButtonElement>(null);
+  const citySearchRef = useRef<HTMLInputElement>(null);
+  const focusCitySearchRef = useRef(false);
   const azanAudioRef = useRef<HTMLAudioElement | null>(null);
   const azanPlayedRef = useRef(false);
   const [azanEnabled, setAzanEnabled] = useState<boolean>(() => safeStorageGet("azanEnabled") === "true");
@@ -102,10 +110,11 @@ const Index = () => {
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && dropdownOpen) {
         setDropdownOpen(false);
-        setWidgetModalOpen(false);
+        cityButtonRef.current?.focus();
       }
+      if (event.key === "Escape" && widgetModalOpen) setWidgetModalOpen(false);
     };
 
     if (dropdownOpen || widgetModalOpen) {
@@ -119,6 +128,17 @@ const Index = () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [dropdownOpen, widgetModalOpen]);
+
+  useEffect(() => {
+    if (dropdownOpen && focusCitySearchRef.current) citySearchRef.current?.focus();
+  }, [dropdownOpen]);
+
+  useEffect(() => {
+    if (!widgetModalOpen) return;
+    const trigger = widgetTriggerRef.current;
+    widgetCloseRef.current?.focus();
+    return () => trigger?.focus();
+  }, [widgetModalOpen]);
 
   const [favoriteCities, setFavoriteCities] = useState<string[]>(() => {
     const saved = safeStorageGet("favoriteCities");
@@ -136,8 +156,7 @@ const Index = () => {
     return QUICK_CITIES;
   });
 
-  const toggleFavorite = (cityName: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleFavorite = (cityName: string) => {
     if (!TURKEY_CITIES.some((c) => c.name === cityName)) return;
     const newFavorites = favoriteCities.includes(cityName)
       ? favoriteCities.filter((name) => name !== cityName)
@@ -248,15 +267,15 @@ const Index = () => {
     setSearchQuery("");
   };
 
-  const filteredCities = TURKEY_CITIES.filter((c) =>
-    normalizeForSearch(c.name).includes(normalizeForSearch(searchQuery))
-  ).sort((a, b) => {
-    const aFav = favoriteCities.includes(a.name);
-    const bFav = favoriteCities.includes(b.name);
-    if (aFav && !bFav) return -1;
-    if (!aFav && bFav) return 1;
-    return a.name.localeCompare(b.name, "tr-TR");
-  });
+  const filteredCities = useMemo(() => {
+    const query = normalizeForSearch(searchQuery);
+    return TURKEY_CITIES.filter((city) => normalizeForSearch(city.name).includes(query)).sort((a, b) => {
+      const aFav = pickerFavoriteOrder.includes(a.name);
+      const bFav = pickerFavoriteOrder.includes(b.name);
+      if (aFav !== bFav) return aFav ? -1 : 1;
+      return a.name.localeCompare(b.name, "tr-TR");
+    });
+  }, [searchQuery, pickerFavoriteOrder]);
 
   const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -298,15 +317,15 @@ const Index = () => {
       </svg>
 
       {/* Content */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center px-4 pt-[calc(1.5rem+env(safe-area-inset-top,0px))] pb-[calc(2rem+env(safe-area-inset-bottom,0px))] md:py-12 print:min-h-0 print:p-0 print:block">
+      <main className="relative z-10 min-h-screen flex flex-col items-center page-safe-area print:min-h-0 print:block">
         {/* Header */}
-        <div className="text-center mb-8 md:mb-12 print:hidden">
-          <div className="flex items-center justify-center gap-3 mb-3">
-            <Moon className="w-8 h-8 text-gold animate-pulse-gold" />
-            <h1 className="text-4xl md:text-5xl font-display font-bold text-gold">
+        <div className="text-center mb-4 md:mb-12 print:hidden">
+          <div className="flex items-center justify-center gap-2 md:gap-3 mb-1 md:mb-3">
+            <Moon className="size-6 md:size-8 shrink-0 text-gold" aria-hidden="true" />
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-gold">
               Vakt-i Şerif
             </h1>
-            <Moon className="w-8 h-8 text-gold animate-pulse-gold" />
+            <Moon className="size-6 md:size-8 shrink-0 text-gold" aria-hidden="true" />
           </div>
           <p className="text-cream-muted text-sm md:text-base">
             {isRamadan ? "Ramazan-ı Şerif'iniz mübarek olsun" : "Namaz Vakitleri & Güncel İmsakiye"}
@@ -314,92 +333,120 @@ const Index = () => {
         </div>
 
         {/* City Selection */}
-        <div className="w-full max-w-2xl mb-8 space-y-4 print:hidden">
+        <div className="w-full max-w-2xl mb-5 md:mb-8 space-y-2 md:space-y-4 print:hidden">
           {/* Quick Cities */}
           {favoriteCities.length > 0 && (
-            <div className="flex flex-wrap justify-center gap-2">
-              {favoriteCities.map((name) => {
-                const city = TURKEY_CITIES.find((c) => c.name === name);
-                if (!city) return null;
-                return (
-                  <button
-                    key={name}
-                    onClick={() => handleCitySelect(city)}
-                    className={`quick-btn ${selectedCity.name === name ? "selected" : ""}`}
-                  >
-                    {name}
-                  </button>
-                );
-              })}
+            <div className="overflow-x-auto sm:overflow-visible">
+              <div className="flex w-max min-w-full justify-center gap-2 p-1 sm:w-auto sm:flex-wrap">
+                {favoriteCities.map((name) => {
+                  const city = TURKEY_CITIES.find((c) => c.name === name);
+                  if (!city) return null;
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => handleCitySelect(city)}
+                      aria-pressed={selectedCity.name === name}
+                      className={`quick-btn ${selectedCity.name === name ? "selected" : ""}`}
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
           {/* Location & Dropdown Row */}
-          <div className="flex gap-2 sm:gap-3 justify-center w-full">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-start gap-2 sm:grid-cols-[auto_minmax(12rem,15rem)_auto_auto] sm:gap-x-3 justify-center w-full">
             <button
               onClick={handleLocate}
               disabled={locating}
-              className="glass-card gold-border px-3 sm:px-4 py-2.5 min-h-[42px] flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream-muted hover:text-gold transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95"
+              className="col-start-1 row-start-1 glass-card gold-border min-h-11 min-w-11 px-3 max-[359px]:px-0 sm:px-4 flex items-center justify-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream-muted hover:text-gold transition-colors cursor-pointer touch-manipulation"
+              aria-busy={locating}
             >
-              <MapPin className="w-3.5 h-3.5 sm:w-4 h-4" />
-              <span className="whitespace-nowrap">{locating ? "..." : "Konum"}</span>
+              <MapPin className={`size-4 ${locating ? "motion-safe:animate-pulse" : ""}`} aria-hidden="true" />
+              <span className="max-[359px]:sr-only">{locating ? "Konum aranıyor" : "Konum"}</span>
             </button>
 
-            <div className="relative flex-grow max-w-[240px]" ref={dropdownRef}>
+            <div
+              className="city-control"
+              ref={dropdownRef}
+              onBlur={(event) => {
+                if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget)) {
+                  setDropdownOpen(false);
+                }
+              }}
+            >
               <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
+                ref={cityButtonRef}
+                onClick={(event) => {
+                  if (!dropdownOpen) {
+                    setSearchQuery("");
+                    // Keep focused rows in place when a favorite changes inside the picker.
+                    setPickerFavoriteOrder(favoriteCities);
+                    focusCitySearchRef.current = event.detail === 0;
+                  }
+                  setDropdownOpen(!dropdownOpen);
+                }}
                 aria-expanded={dropdownOpen}
-                aria-haspopup="listbox"
-                className="glass-card gold-border px-3 sm:px-4 py-2.5 min-h-[42px] flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-cream w-full justify-between touch-manipulation active:scale-[0.99]"
+                aria-controls={dropdownOpen ? "city-picker" : undefined}
+                className="col-start-2 row-start-1 glass-card gold-border min-h-11 px-2 sm:px-4 flex items-center gap-1 sm:gap-2 text-sm max-[359px]:text-xs text-cream w-full min-w-0 justify-between touch-manipulation"
               >
-                <span className="truncate">{selectedCity.name}</span>
+                <span className="min-w-0 break-words text-left">{selectedCity.name}</span>
                 <ChevronDown className={`w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 w-full min-w-[220px] bg-[#0d1217] backdrop-blur-xl rounded-2xl border gold-border overflow-hidden flex flex-col shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+                <section id="city-picker" aria-label="Şehir seçimi" className="city-control-panel col-span-full row-start-2 min-w-0 bg-[#0d1217] rounded-2xl gold-border shadow-xl z-50">
                   <div className="p-3 border-b border-white/10">
-                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5">
-                      <Search className="w-4 h-4 text-muted-foreground" />
+                    <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 focus-within:border-gold">
+                      <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                       <input
-                        type="text"
+                        ref={citySearchRef}
+                        type="search"
+                        aria-label="Şehir ara"
                         placeholder="Şehir ara..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="bg-transparent text-sm text-cream outline-none w-full placeholder:text-muted-foreground"
+                        className="min-h-11 min-w-0 w-full bg-transparent text-base text-cream outline-none placeholder:text-cream/70"
                       />
                     </div>
                   </div>
-                  <div role="listbox" aria-label="Şehirler" className="overflow-y-auto max-h-[300px]">
+                  <div className="overflow-y-auto max-h-64 p-1">
                     {filteredCities.length === 0 ? (
-                      <div className="px-4 py-6 text-center text-xs text-cream-muted">
+                      <div role="status" className="px-4 py-6 text-center text-sm text-cream-muted">
                         Eşleşen şehir bulunamadı.
                       </div>
                     ) : (
                       filteredCities.map((city) => {
                         const isFavorite = favoriteCities.includes(city.name);
+                        const isSelected = selectedCity.name === city.name;
                         return (
                           <div
                             key={city.name}
-                            role="option"
-                            aria-selected={selectedCity.name === city.name}
-                            className={`flex items-center justify-between px-4 py-2.5 text-sm transition-colors cursor-pointer ${
-                              selectedCity.name === city.name
-                                ? "bg-night-light"
-                                : "hover:bg-night-light"
-                            }`}
-                            onClick={() => handleCitySelect(city)}
+                            className={`flex items-stretch rounded-xl ${isSelected ? "bg-night-light" : "hover:bg-night-light"}`}
                           >
-                            <span className={selectedCity.name === city.name ? "text-gold" : "text-cream-muted"}>
-                              {city.name}
-                            </span>
                             <button
-                              onClick={(e) => toggleFavorite(city.name, e)}
-                              className="p-2 -mr-1 text-muted-foreground hover:text-gold transition-colors touch-manipulation flex items-center justify-center min-w-[36px] min-h-[36px]"
-                              aria-label={`${city.name} şehrini favorilere ${isFavorite ? "çıkar" : "ekle"}`}
+                              type="button"
+                              aria-pressed={isSelected}
+                              onClick={() => {
+                                handleCitySelect(city);
+                                cityButtonRef.current?.focus();
+                              }}
+                              className={`min-h-11 min-w-0 flex-1 rounded-xl px-3 text-left text-sm touch-manipulation ${isSelected ? "text-gold" : "text-cream"}`}
+                            >
+                              {city.name}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => toggleFavorite(city.name)}
+                              className="min-h-11 w-11 shrink-0 rounded-xl text-cream-muted hover:text-gold transition-colors touch-manipulation grid place-items-center"
+                              aria-label={`${city.name} favorisi`}
+                              aria-pressed={isFavorite}
                             >
                               <Star
-                                className={`w-4 h-4 ${isFavorite ? "text-gold fill-gold" : "text-muted-foreground"}`}
+                                className={`size-4 ${isFavorite ? "text-gold fill-gold" : ""}`}
+                                aria-hidden="true"
                               />
                             </button>
                           </div>
@@ -407,7 +454,7 @@ const Index = () => {
                       })
                     )}
                   </div>
-                </div>
+                </section>
               )}
             </div>
 
@@ -423,7 +470,7 @@ const Index = () => {
                 setAzanEnabled(newVal);
                 safeStorageSet("azanEnabled", String(newVal));
               }}
-              className="glass-card gold-border p-2.5 min-h-[42px] min-w-[42px] flex items-center justify-center transition-all hover:text-gold touch-manipulation active:scale-95"
+              className="col-start-4 row-start-1 glass-card gold-border size-11 grid place-items-center hover:text-gold touch-manipulation"
               aria-label={azanEnabled ? "Ezan sesini kapat" : "Ezan sesini aç"}
               title={azanEnabled ? "Ezan sesini kapat" : "Ezan sesini aç"}
             >
@@ -449,15 +496,16 @@ const Index = () => {
         />
 
         {/* Countdown */}
-        <div className="mb-10 text-center print:hidden">
+        <div className="w-full mb-6 md:mb-10 text-center print:hidden">
           {/* Countdown Target Switcher */}
-          <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mb-2 md:mb-4">
             <button
               onClick={() => {
                 setCountdownTarget("smart_iftar");
                 safeStorageSet("countdownTarget", "smart_iftar");
               }}
-              className={`text-xs px-3 py-1.5 rounded-full transition-all touch-manipulation active:scale-95 ${
+              aria-pressed={countdownTarget === "smart_iftar"}
+              className={`min-h-11 text-xs px-2.5 sm:px-3 rounded-full transition-colors touch-manipulation ${
                 countdownTarget === "smart_iftar"
                   ? "bg-gold/20 text-gold border border-gold/40 font-medium shadow-[0_0_10px_rgba(212,175,55,0.15)]"
                   : "text-cream-muted hover:text-gold border border-transparent"
@@ -470,7 +518,8 @@ const Index = () => {
                 setCountdownTarget("next_prayer");
                 safeStorageSet("countdownTarget", "next_prayer");
               }}
-              className={`text-xs px-3 py-1.5 rounded-full transition-all touch-manipulation active:scale-95 ${
+              aria-pressed={countdownTarget === "next_prayer"}
+              className={`min-h-11 text-xs px-2.5 sm:px-3 rounded-full transition-colors touch-manipulation ${
                 countdownTarget === "next_prayer"
                   ? "bg-gold/20 text-gold border border-gold/40 font-medium shadow-[0_0_10px_rgba(212,175,55,0.15)]"
                   : "text-cream-muted hover:text-gold border border-transparent"
@@ -480,7 +529,7 @@ const Index = () => {
             </button>
           </div>
 
-          <h2 className="font-display text-xl md:text-2xl text-gold-light mb-6">
+          <h2 id="countdown-title" className="font-display text-xl md:text-2xl text-gold-light mb-3 md:mb-6">
             {countdown.mode === "bayram"
               ? "Ramazan Bayramı"
               : countdown.passed && countdown.mode === "Maghrib"
@@ -514,21 +563,20 @@ const Index = () => {
             <div className="text-cream-muted">Yarının imsak vakti şu an alınamadı.</div>
           ) : (
             <div
-              className="flex items-center gap-1.5 sm:gap-3 md:gap-4 justify-center"
+              className="flex items-start gap-1.5 sm:gap-3 md:gap-4 justify-center"
               role="timer"
-              aria-live="polite"
-              aria-atomic="true"
+              aria-labelledby="countdown-title"
             >
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.hours)}</div>
                 <span className="text-[11px] sm:text-xs text-cream-muted mt-1.5 sm:mt-2 block">Saat</span>
               </div>
-              <span className="text-2xl sm:text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
+              <span className="pt-2 sm:pt-3 md:pt-4 text-3xl sm:text-4xl md:text-6xl text-gold font-bold" aria-hidden="true">:</span>
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.minutes)}</div>
                 <span className="text-[11px] sm:text-xs text-cream-muted mt-1.5 sm:mt-2 block">Dakika</span>
               </div>
-              <span className="text-2xl sm:text-3xl md:text-5xl text-gold font-bold animate-pulse-gold">:</span>
+              <span className="pt-2 sm:pt-3 md:pt-4 text-3xl sm:text-4xl md:text-6xl text-gold font-bold" aria-hidden="true">:</span>
               <div className="text-center">
                 <div className="countdown-digit">{pad(countdown.seconds)}</div>
                 <span className="text-[11px] sm:text-xs text-cream-muted mt-1.5 sm:mt-2 block">Saniye</span>
@@ -539,15 +587,19 @@ const Index = () => {
 
         {/* Prayer Times */}
         {prayerTimes && (
-          <div className="w-full max-w-3xl mb-10 print:hidden">
-            <h3 className="font-display text-lg text-gold-light text-center mb-4">
-              {selectedCity.name} — {formatDisplayDate(dateKey)} — Namaz Vakitleri
+          <section aria-labelledby="prayer-times-title" className="w-full max-w-3xl mb-6 md:mb-10 print:hidden">
+            <h3 id="prayer-times-title" className="font-display text-lg text-gold-light text-center">
+              {selectedCity.name} Namaz Vakitleri
             </h3>
-            <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+            <p className="text-center text-sm text-cream-muted mb-3 md:mb-4">
+              <time dateTime={dateKey}>{formatDisplayDate(dateKey)}</time>
+            </p>
+            <div className="grid grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
               {(Object.keys(PRAYER_LABELS) as (keyof PrayerTimes)[]).map((key) => (
                 <div
                   key={key}
                   className={`prayer-card ${activePrayer === key ? "active" : ""}`}
+                  aria-current={activePrayer === key ? "time" : undefined}
                 >
                   <div className="mb-1 flex items-center justify-center">
                     {(() => {
@@ -555,7 +607,7 @@ const Index = () => {
                       return (
                         <Icon
                           aria-hidden="true"
-                          className="h-6 w-6 text-gold-light"
+                          className="size-5 sm:size-6 text-gold-light"
                         />
                       );
                     })()}
@@ -563,14 +615,16 @@ const Index = () => {
                   <div className="text-xs text-cream-muted mb-1">
                     {isRamadan && key === "Maghrib" ? "İftar" : isRamadan && key === "Fajr" ? "Sahur" : PRAYER_LABELS[key]}
                   </div>
-                  <div className="text-lg font-semibold text-cream font-sans">
+                  <div className="text-lg font-semibold tabular-nums text-cream font-sans">
                     {prayerTimes[key]}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </section>
         )}
+
+        <InstallPrompt />
 
         {/* Daily Content */}
         <div className="w-full print:hidden">
@@ -588,11 +642,12 @@ const Index = () => {
         {/* Footer */}
         <footer className="mt-4 mb-2 text-center flex flex-col items-center gap-2 print:hidden">
           <button
+            ref={widgetTriggerRef}
             onClick={() => {
               setWidgetCopied(false);
               setWidgetModalOpen(true);
             }}
-            className="text-xs text-gold/80 hover:text-gold underline transition-colors"
+            className="min-h-11 px-2 text-sm text-gold hover:text-gold-light underline transition-colors"
           >
             Sitenize İftar Sayacı Ekleyin (Widget)
           </button>
@@ -613,26 +668,37 @@ const Index = () => {
         {/* Widget Modal */}
         {widgetModalOpen && (
           <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in print:hidden"
+            className="fixed inset-0 z-50 flex items-center justify-center modal-safe-area bg-black/70 backdrop-blur-sm print:hidden"
             onClick={() => setWidgetModalOpen(false)}
           >
             <div
               role="dialog"
               aria-modal="true"
               aria-labelledby="widget-modal-title"
-              className="glass-card gold-border p-6 max-w-md w-full relative shadow-2xl"
+              className="bg-[#0d1217] rounded-2xl gold-border p-4 sm:p-6 max-w-md w-full max-h-full overflow-y-auto shadow-xl"
               onClick={(e) => e.stopPropagation()}
+              onKeyDown={(event) => {
+                if (event.key !== "Tab") return;
+                const boundary = event.shiftKey ? widgetCloseRef.current : widgetCopyRef.current;
+                if (event.target === boundary) {
+                  event.preventDefault();
+                  (event.shiftKey ? widgetCopyRef.current : widgetCloseRef.current)?.focus();
+                }
+              }}
             >
-              <button
-                onClick={() => setWidgetModalOpen(false)}
-                className="absolute top-3 right-3 p-2 text-cream-muted hover:text-gold transition-colors text-lg touch-manipulation flex items-center justify-center min-w-[36px] min-h-[36px]"
-                aria-label="Kapat"
-              >
-                ✕
-              </button>
-              <h3 id="widget-modal-title" className="text-lg font-display text-gold font-bold mb-2">
-                Web Sitenize İftar Sayacı Ekleyin
-              </h3>
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <h3 id="widget-modal-title" className="text-lg font-display text-gold font-bold">
+                  Web Sitenize İftar Sayacı Ekleyin
+                </h3>
+                <button
+                  ref={widgetCloseRef}
+                  onClick={() => setWidgetModalOpen(false)}
+                  className="size-11 shrink-0 grid place-items-center rounded-xl text-cream-muted hover:text-gold touch-manipulation"
+                  aria-label="Kapat"
+                >
+                  <X className="size-5" aria-hidden="true" />
+                </button>
+              </div>
               <p className="text-xs text-cream-muted mb-4">
                 Aşağıdaki kodu web sitenizin dilediğiniz bölümüne ekleyerek canlı iftar sayacını sitenizde gösterebilirsiniz:
               </p>
@@ -640,6 +706,7 @@ const Index = () => {
                 {`<iframe src="https://iftarsaati.netlify.app/widget?city=${encodeURIComponent(selectedCity.name)}" width="300" height="220" frameborder="0" style="border:none; overflow:hidden;" scrolling="no"></iframe>`}
               </div>
               <button
+                ref={widgetCopyRef}
                 onClick={async () => {
                   const code = `<iframe src="https://iftarsaati.netlify.app/widget?city=${encodeURIComponent(selectedCity.name)}" width="300" height="220" frameborder="0" style="border:none; overflow:hidden;" scrolling="no"></iframe>`;
                   try {
@@ -652,14 +719,14 @@ const Index = () => {
                     setWidgetCopied(false);
                   }
                 }}
-                className="w-full glass-card gold-border py-2 text-sm text-gold hover:bg-gold/10 transition-colors font-medium"
+                className="w-full min-h-11 rounded-xl gold-border text-sm text-gold hover:bg-gold/10 transition-colors font-medium"
               >
-                {widgetCopied ? "Kodu Kopyalandı ✓" : "Kodu Kopyala"}
+                {widgetCopied ? "Kod kopyalandı" : "Kodu Kopyala"}
               </button>
             </div>
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 };

@@ -125,7 +125,7 @@ const Widget = () => {
                   Yarının imsak vakti bekleniyor
                 </div>
               ) : (
-                <div className="flex items-center justify-center gap-1" role="timer" aria-live="polite">
+                <div className="flex items-center justify-center gap-1" role="timer" aria-label={label}>
                   <span
                     className="text-2xl font-bold tabular-nums"
                     style={{ color: "hsl(36, 60%, 70%)", fontFamily: "'Inter', sans-serif" }}
